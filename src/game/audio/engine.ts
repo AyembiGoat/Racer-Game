@@ -78,6 +78,11 @@ export function createEngine(context: BaseAudioContext) {
     makeNoiseSource,
     now: () => context.currentTime,
 
+    setMasterLevel(level: number) {
+      const clamped = Math.max(0, Math.min(1, level));
+      master.gain.setTargetAtTime(clamped, context.currentTime, 0.02);
+    },
+
     noiseBurst(bus: Bus, at: number, shape: NoiseBurst) {
       const source = context.createBufferSource();
       source.buffer = noiseBuffer;

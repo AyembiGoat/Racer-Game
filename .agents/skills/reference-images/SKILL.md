@@ -14,7 +14,12 @@ it.
 1. **The owner gave one.** Use it. Do not generate alternatives, restyle it or
    "improve" it. If it is unclear from some angle, ask, or generate extra views that
    match it.
-2. **The owner gave none.** Generate one, following the steps below, every time.
+2. **The owner gave none — 3D / world assets.** Generate candidates following the steps
+   below.
+3. **The owner gave none — UI and menus.** Collect screenshots of real shipped games
+   from public UI databases or captures; never generate AI mockups for UI reference.
+   Store temporary screenshots in gitignored `reference/ui/` and commit the distilled
+   design notes and source URLs in `reference/ui-notes.md`.
 
 ## Generating a reference
 

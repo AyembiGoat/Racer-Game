@@ -19,18 +19,18 @@ I remove it? If the honest answer is "it looks cooler" or "nothing", remove it.
 
 | Default                                                                     | Instead                                                             |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Glow lines, neon borders, outer glow on speedometers and panels             | Flat shapes. Contrast from value and size                           |
+| Neon borders, arbitrary bloom, cyberpunk outlines                           | Matte anthracite layers, hairline edges, opacity-only focus glow    |
 | Purple-to-blue gradients, cyan and magenta accents on near-black            | The palette in the art direction. One accent, used rarely           |
 | Gradient-filled text                                                        | Solid colour                                                        |
-| Glass panels: blur, translucency, soft border                               | No panel, or an opaque one, if the text needs backing               |
+| Heavy blurred glass cards on every per-frame HUD element                    | Opaque/near-opaque matte HUD panels; reserve blur for static modals |
 | Corner brackets, scan lines, fake telemetry readouts, decorative dial ticks | Only marks that carry real state                                    |
-| Emoji as icons                                                              | One drawn icon set, or text                                         |
-| Pulsing, shimmering, breathing or floating loops                            | Motion only in response to an event (redline, lap delta, collision) |
-| Fade-and-slide entrance on every element                                    | Appear. Animate only what explains a change                         |
-| Everything in a rounded card with the same radius and soft shadow           | Group with space and alignment                                      |
+| Emoji as icons                                                              | One drawn SVG icon set (`src/game/ui/icons.ts`), or text            |
+| Pulsing, shimmering, breathing or floating loops                            | Motion only in response to an event (shift, lap delta, collision)   |
+| Uncontrolled bounce/zoom entrances on everything                            | Crisp 120–360 ms opacity/transform cues; honour reduced motion      |
+| Everything in identical rounded cards with heavy drop shadows               | Intentional hierarchy, tight 4 px spacing grid, tabular numerals    |
 | All-caps labels with wide letter spacing above every value                  | Label only what is ambiguous without one                            |
 | A big number with a small label and an accent bar                           | Size by how often the driver needs it mid-corner                    |
-| Middle dots between items, arrows after button text                         | Plain words                                                         |
+| Arrows or decorative punctuation after button text                          | Plain words                                                         |
 
 A racing HUD is read in a peripheral glance while braking into a corner. Every element
 competes with the apex and braking markers ahead. Fewer, flatter and smaller wins.

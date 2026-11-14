@@ -6,14 +6,14 @@ import { createGame, stepGame } from '../core/game';
 import { clubCircuit } from '../core/tracks/clubCircuit';
 import { createAudio, measureSounds } from './audio';
 import { showCar } from './carModel';
-import { createHud } from './hud';
 import { createHumanInput } from './input';
 import { showMaterials } from './materials/preview';
+import { createUi, isReducedMotionActive, type ScreenName, type UiSoundKind } from './ui';
 import { createView } from './view';
 
 /**
  * Ways to run:
- *   (default)   a person drives with the keyboard.
+ *   (default)   title screen, settings, controls, HUD, and keyboard driving.
  *   ?bot        the bot drives laps in real time, to watch.
  *   ?materials  every surface side by side, to check textures.
  *   ?car        the BMW M3 from four angles, to check proportions and wheel clearance.
@@ -35,20 +35,116 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   const track = clubCircuit;
   const audio = createAudio();
   const view = createView(track);
-  const hud = createHud(track.name);
   const bot = createBot(track);
 
   let previous = createGame(track);
   let state = previous;
   let lastInput: GameInput = NO_INPUT;
+  let audioUnlocked = false;
+  let finishLoadingEarly: (() => void) | null = null;
+  let human: ReturnType<typeof createHumanInput> | null = null;
 
-  function resetToGrid() {
+  function unlockAudioFromGesture() {
+    if (!audioUnlocked) {
+      audioUnlocked = true;
+    }
+    audio.start();
+    audio.setMasterVolume(ui.store.getSettings().masterVolume / 100);
+  }
+
+  function playUiSound(kind: UiSoundKind) {
+    if (!audioUnlocked) return;
+    audio.playUi(kind);
+  }
+
+  function syncSettingsToViewAndAudio() {
+    const s = ui.store.getSettings();
+    view.setFov(s.fov);
+    view.setReducedMotion(isReducedMotionActive(s));
+    audio.setMasterVolume(s.masterVolume / 100);
+    if (ui.screen() === 'title') {
+      view.setCamera(s.defaultCamera);
+    }
+  }
+
+  function resetToGrid(withVeil = false) {
     previous = createGame(track);
     state = previous;
     lastInput = NO_INPUT;
     view.resetCamera(track.spawn.heading);
-    hud.update(state);
+    ui.hud.resetTransientState();
+    if (withVeil) ui.hud.triggerResetVeil();
+    ui.hud.update(state, NO_INPUT, [], 0);
   }
+
+  function enterScreen(next: ScreenName) {
+    ui.setScreen(next);
+    const isTitle = next === 'title' || next === 'loading';
+    view.setTitleShowcase(isTitle);
+    human?.setCaptureEnabled(next === 'race');
+    if (next !== 'race') {
+      human?.clear();
+      audio.update(state, 0, false);
+    }
+    if (next === 'pause') {
+      ui.screens.refreshPauseSummary(state);
+    }
+  }
+
+  let prevDefaultCamera: 'chase' | 'bonnet' | null = null;
+
+  const ui = createUi(track, {
+    onStartRace() {
+      unlockAudioFromGesture();
+      resetToGrid(false);
+      view.setCamera(ui.store.getSettings().defaultCamera);
+      enterScreen('race');
+    },
+    onResumeRace() {
+      unlockAudioFromGesture();
+      enterScreen('race');
+    },
+    onRestartRun() {
+      unlockAudioFromGesture();
+      resetToGrid(true);
+      view.setCamera(ui.store.getSettings().defaultCamera);
+      enterScreen('race');
+    },
+    onQuitToTitle() {
+      resetToGrid(false);
+      view.setCamera(ui.store.getSettings().defaultCamera);
+      enterScreen('title');
+    },
+    onPlaySound(kind) {
+      playUiSound(kind);
+    },
+    onSkipLoading() {
+      unlockAudioFromGesture();
+      finishLoadingEarly?.();
+    },
+    getGameState: () => state,
+    getCurrentCamera: () => view.camera(),
+  });
+
+  prevDefaultCamera = ui.store.getSettings().defaultCamera;
+  view.setCamera(prevDefaultCamera);
+  syncSettingsToViewAndAudio();
+
+  ui.store.subscribe(() => {
+    const s = ui.store.getSettings();
+    if (s.defaultCamera !== prevDefaultCamera) {
+      prevDefaultCamera = s.defaultCamera;
+      view.setCamera(s.defaultCamera);
+    }
+    syncSettingsToViewAndAudio();
+    if (ui.screen() === 'pause') {
+      ui.screens.refreshPauseSummary(state);
+    }
+    if (gameMode === 'auto') {
+      ui.hud.update(state, lastInput, [], 0);
+      view.frame(previous, state, 1, 0, lastInput.brake > 0);
+    }
+  });
 
   function step(input: GameInput): GameEvent[] {
     previous = state;
@@ -56,15 +152,14 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     const result = stepGame(state, input, SIM_STEP_SECONDS, track);
     state = result.state;
     audio.handle(result.events);
-    hud.update(state);
+    ui.hud.update(state, input, result.events, SIM_STEP_SECONDS);
     return result.events;
   }
 
-  const overlay = document.getElementById('overlay');
-  hud.update(state);
-
   if (gameMode === 'auto') {
-    if (overlay) overlay.hidden = true;
+    enterScreen('race');
+    view.compileShaders();
+    ui.hud.update(state, NO_INPUT, [], 0);
 
     const run = (steps: number, chooseInput: (current: GameState) => GameInput) => {
       const events: GameEvent[] = [];
@@ -83,83 +178,139 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       camera: () => view.camera(),
       setCamera: (cameraMode) => {
         view.setCamera(cameraMode);
+        ui.hud.notifyCamera(cameraMode);
         view.frame(previous, state, 1, 0, lastInput.brake > 0);
       },
+      fov: () => view.fov(),
       reset: () => {
-        resetToGrid();
+        resetToGrid(false);
         view.frame(previous, state, 1, 0, false);
       },
+      screen: () => ui.screen(),
+      setScreen: (screen) => {
+        if (screen === 'settings' || screen === 'controls') {
+          ui.openSubscreen(screen);
+        } else {
+          enterScreen(screen);
+        }
+        view.frame(previous, state, 1, 0, lastInput.brake > 0);
+      },
+      settings: () => ui.store.getSettings(),
+      setSettings: (patch) => ui.store.setSettings(patch),
+      bindings: () => ui.store.getBindings(),
       loudness: measureSounds,
     };
 
     view.frame(previous, state, 1, 0, false);
+    return;
+  }
+
+  // Interactive modes: 'play' or 'bot'
+  const humanInput = createHumanInput(() => ui.store.getBindings());
+  human = humanInput;
+  const loop = createFixedLoop();
+  let lastTime = performance.now();
+
+  if (gameMode === 'bot') {
+    enterScreen('race');
+    view.compileShaders();
+    window.addEventListener(
+      'pointerdown',
+      () => {
+        unlockAudioFromGesture();
+      },
+      { once: true },
+    );
   } else {
-    const human = createHumanInput();
-    const loop = createFixedLoop();
-    let paused = gameMode === 'play';
-    let lastTime = performance.now();
+    // 'play' mode starts on loading screen -> real build phases -> title showcase
+    enterScreen('loading');
+    ui.screens.setLoadingState('Building circuit', 0.25, false);
 
-    const setPaused = (nextPaused: boolean) => {
-      paused = nextPaused;
-      if (overlay) overlay.hidden = !paused;
-      human.clear();
-      audio.update(state, 0, !paused);
+    let loadingDone = false;
+    const completeLoading = () => {
+      if (loadingDone) return;
+      loadingDone = true;
+      finishLoadingEarly = null;
+      enterScreen('title');
     };
+    finishLoadingEarly = completeLoading;
 
-    if (gameMode === 'bot') {
-      setPaused(false);
-      window.addEventListener(
-        'pointerdown',
-        () => {
-          audio.start();
-        },
-        { once: true },
-      );
-    } else {
-      overlay?.addEventListener('click', () => {
-        audio.start();
-        setPaused(false);
+    requestAnimationFrame(() => {
+      ui.screens.setLoadingState('Compiling shaders', 0.65, true);
+      view.compileShaders();
+      view.frame(previous, state, 1, 0, false);
+
+      requestAnimationFrame(() => {
+        ui.screens.setLoadingState('Ready', 1, true);
+        const delayMs = isReducedMotionActive(ui.store.getSettings()) ? 40 : 280;
+        window.setTimeout(completeLoading, delayMs);
       });
-      window.addEventListener('keydown', (event) => {
-        if (paused && (event.code === 'Enter' || event.code === 'Space')) {
-          event.preventDefault();
-          audio.start();
-          setPaused(false);
+    });
+
+    window.addEventListener(
+      'pointerdown',
+      () => {
+        unlockAudioFromGesture();
+      },
+      { once: true },
+    );
+    window.addEventListener(
+      'keydown',
+      () => {
+        unlockAudioFromGesture();
+      },
+      { once: true },
+    );
+  }
+
+  const frame = (now: number) => {
+    const elapsed = Math.min((now - lastTime) / 1000, 0.25);
+    lastTime = now;
+
+    const currentScreen = ui.screen();
+    if (currentScreen === 'race') {
+      const actions = humanInput.consumeActions();
+      if (actions.cycleCamera) {
+        view.cycleCamera();
+        ui.hud.notifyCamera(view.camera());
+        playUiSound('select');
+      }
+      if (gameMode === 'play') {
+        if (actions.reset) {
+          resetToGrid(true);
+          playUiSound('confirm');
         }
-      });
+        if (actions.pause) {
+          playUiSound('back');
+          enterScreen('pause');
+        }
+      }
     }
 
-    const frame = (now: number) => {
-      const elapsed = Math.min((now - lastTime) / 1000, 0.25);
-      lastTime = now;
+    const activeRace = ui.screen() === 'race';
+    if (activeRace) {
+      view.adapt(elapsed);
+      const alpha = loop.advance(elapsed, (dt) =>
+        step(gameMode === 'bot' ? bot(state) : humanInput.sample(dt)),
+      );
+      audio.update(state, lastInput.throttle, true);
+      view.frame(previous, state, alpha, elapsed, lastInput.brake > 0);
+    } else {
+      audio.update(state, 0, false);
+      view.frame(previous, state, 1, elapsed, false);
+    }
 
-      const actions = human.consumeActions();
-      if (actions.cycleCamera) view.cycleCamera();
-      if (gameMode === 'play' && !paused) {
-        if (actions.reset) resetToGrid();
-        if (actions.pause) setPaused(true);
-      }
-
-      if (!paused) view.adapt(elapsed);
-      const alpha = !paused
-        ? loop.advance(elapsed, (dt) => step(gameMode === 'bot' ? bot(state) : human.sample(dt)))
-        : 1;
-      audio.update(state, lastInput.throttle, !paused);
-      view.frame(previous, state, alpha, paused ? 0 : elapsed, lastInput.brake > 0);
-      requestAnimationFrame(frame);
-    };
-
-    view.frame(previous, state, 1, 0, false);
     requestAnimationFrame(frame);
-  }
+  };
+
+  view.frame(previous, state, 1, 0, false);
+  requestAnimationFrame(frame);
 }
 
-const overlayElement = document.getElementById('overlay');
-if (mode === 'materials' || mode === 'car') {
-  if (overlayElement) overlayElement.hidden = true;
-  for (const element of document.querySelectorAll<HTMLElement>('.hud')) element.hidden = true;
-  if (mode === 'materials') showMaterials();
-  else showCar();
+if (mode === 'materials') {
+  showMaterials();
+} else if (mode === 'car') {
+  showCar();
 } else {
   runGame(mode);
 }

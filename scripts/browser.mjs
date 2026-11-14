@@ -40,16 +40,7 @@ async function findBrowser() {
 }
 
 /**
- * Open the game in automation or preview mode. Returns the page plus helpers:
- *   step(input, steps)  hold an input for a number of 60 Hz steps
- *   bot(steps)          let the bot drive
- *   state()             the current game state
- *   camera()            active camera mode (`chase` or `bonnet`)
- *   setCamera(mode)     switch camera mode
- *   reset()             return to the starting grid
- *   loudness()          peak level of each sound relative to a barrier impact
- *   screenshot(file)    save what is on screen
- * `errors` collects anything the page logged as an error.
+ * Open the game in automation, play, or preview mode.
  */
 export async function launchGame({ width = 1280, height = 720, mode = 'auto' } = {}) {
   const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
@@ -80,16 +71,22 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     if (message.type() === 'error') errors.push(message.text());
   });
 
-  await page.goto(`http://127.0.0.1:${address.port}/?${mode}`, { waitUntil: 'load' });
+  const baseUrl = `http://127.0.0.1:${address.port}/`;
+  const url = mode && mode !== 'play' ? `${baseUrl}?${mode}` : baseUrl;
+  await page.goto(url, { waitUntil: 'load' });
   if (mode === 'auto') {
     await page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
-  }
-  if (mode === 'materials' || mode === 'car') {
+  } else if (mode === 'materials' || mode === 'car') {
     await page.waitForFunction(() => document.body.dataset.ready === 'true', { timeout: 60000 });
+  } else {
+    await page.waitForFunction(() => document.querySelector('.ui-root') !== null, {
+      timeout: 60000,
+    });
   }
 
   return {
     page,
+    baseUrl,
     errors,
     step: (input = {}, steps = 1) =>
       page.evaluate((i, n) => window.__racer.step(i, n), input, steps),
@@ -97,8 +94,15 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     state: () => page.evaluate(() => window.__racer.state()),
     camera: () => page.evaluate(() => window.__racer.camera()),
     setCamera: (cameraMode) => page.evaluate((m) => window.__racer.setCamera(m), cameraMode),
+    fov: () => page.evaluate(() => window.__racer.fov()),
     reset: () => page.evaluate(() => window.__racer.reset()),
+    screen: () => page.evaluate(() => window.__racer.screen()),
+    setScreen: (screen) => page.evaluate((s) => window.__racer.setScreen(s), screen),
+    settings: () => page.evaluate(() => window.__racer.settings()),
+    setSettings: (patch) => page.evaluate((p) => window.__racer.setSettings(p), patch),
+    bindings: () => page.evaluate(() => window.__racer.bindings()),
     loudness: () => page.evaluate(() => window.__racer.loudness()),
+    setViewport: (w, h) => page.setViewport({ width: w, height: h }),
     async screenshot(file) {
       mkdirSync(path.dirname(file), { recursive: true });
       await page.screenshot({ path: file });
