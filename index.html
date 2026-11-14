@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Racer Game</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #1c1f24;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+      }
+      .hud {
+        position: fixed;
+        pointer-events: none;
+        font-variant-numeric: tabular-nums;
+        text-shadow:
+          0 0 3px rgb(0 0 0 / 95%),
+          0 1px 4px rgb(0 0 0 / 85%);
+      }
+      #timing {
+        left: 24px;
+        top: 20px;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      #lap-current {
+        font-size: 20px;
+        font-weight: 600;
+      }
+      #speedometer {
+        right: 28px;
+        bottom: 22px;
+        text-align: right;
+      }
+      #speed-value {
+        font-size: 34px;
+        font-weight: 600;
+        line-height: 1.1;
+      }
+      #speed-unit {
+        font-size: 14px;
+        opacity: 0.85;
+      }
+      #overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgb(0 0 0 / 60%);
+        cursor: pointer;
+      }
+      #overlay h1 {
+        margin: 0 0 20px;
+        font-size: 32px;
+        font-weight: 600;
+      }
+      #overlay dl {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 6px 20px;
+        margin: 0 0 24px;
+        font-size: 15px;
+      }
+      #overlay dt {
+        text-align: right;
+        opacity: 0.75;
+      }
+      #overlay dd {
+        margin: 0;
+      }
+      #overlay p {
+        margin: 0;
+        font-size: 16px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="timing" class="hud">
+      <div id="lap-count"></div>
+      <div id="lap-current"></div>
+      <div id="lap-best"></div>
+    </div>
+    <div id="speedometer" class="hud">
+      <div id="speed-value"></div>
+      <div id="speed-unit"></div>
+    </div>
+    <div id="overlay">
+      <div>
+        <h1 id="track-name">Test Circuit</h1>
+        <dl>
+          <dt>Accelerate</dt>
+          <dd>W or Up</dd>
+          <dt>Brake / reverse</dt>
+          <dd>S or Down</dd>
+          <dt>Steer</dt>
+          <dd>A D or Left Right</dd>
+          <dt>Handbrake</dt>
+          <dd>Space</dd>
+          <dt>Camera</dt>
+          <dd>C</dd>
+          <dt>Reset</dt>
+          <dd>R</dd>
+          <dt>Pause</dt>
+          <dd>Esc</dd>
+        </dl>
+        <p>Click or press Enter to drive</p>
+      </div>
+    </div>
+    <script type="module" src="/src/game/main.ts"></script>
+  </body>
+</html>

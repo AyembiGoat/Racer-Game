@@ -1,0 +1,8 @@
+dist
+coverage
+package-lock.json
+.agents/skills/frontend-design
+.agents/skills/webapp-testing
+.agents/skills/file-pr
+.agents/skills/babysit-pr
+.agents/skills/leaving-pr-comments
