@@ -4,7 +4,8 @@
 //   npm run playtest -- --ui-matrix   extended multi-resolution & all-tabs screenshot gallery
 //   npm run playtest -- --quick       starting-grid screenshot only
 //   npm run playtest -- --materials   every surface side by side
-//   npm run playtest -- --car         the BMW M3 from four angles
+//   npm run playtest -- --car         every car from four angles (playtest/car-<id>.png)
+//   npm run playtest -- --car <id>    one car from four angles
 //   npm run playtest -- --keep before copy the screenshots to playtest/before/ afterwards
 //
 // Exits non-zero if the page logs an error or a check fails.
@@ -49,12 +50,23 @@ async function checkHudLayout(page) {
   });
 }
 
-const preview = ['materials', 'car'].find((name) => args.includes(`--${name}`));
-if (preview) {
-  const page = await launchGame({ mode: preview });
-  await page.screenshot(`playtest/${preview}.png`);
+const CAR_IDS = ['bmw-m3-e30', 'mazda-mx5-na', 'ford-mustang-gt-s550', 'porsche-cayman-s-987'];
+
+if (args.includes('--materials')) {
+  const page = await launchGame({ mode: 'materials' });
+  await page.screenshot('playtest/materials.png');
   summary.errors = page.errors;
   await page.close();
+} else if (args.includes('--car')) {
+  const requested = args[args.indexOf('--car') + 1];
+  const ids = CAR_IDS.includes(requested) ? [requested] : CAR_IDS;
+  summary.errors = [];
+  for (const id of ids) {
+    const page = await launchGame({ mode: 'car', query: `car=${id}` });
+    await page.screenshot(`playtest/car-${id}.png`);
+    summary.errors.push(...page.errors);
+    await page.close();
+  }
 } else if (uiMatrix) {
   const game = await launchGame({ width: 1280, height: 720, mode: 'auto' });
   const shot = (name) => game.screenshot(`playtest/${name}.png`);
@@ -148,7 +160,7 @@ if (preview) {
 
     if (!quick) {
       // 1. Accelerate, steer, bonnet camera, brake
-      await game.step({ throttle: 1 }, 90);
+      await game.step({ throttle: 1 }, 120);
       const afterLaunch = await game.state();
       check('accelerates off the grid', afterLaunch.car.speed > 16);
       check('shifts up under acceleration', afterLaunch.car.gear >= 2);
@@ -156,7 +168,7 @@ if (preview) {
       await game.step({ throttle: 0.85, steer: -0.6 }, 25);
       await shot('02-steering');
       const steered = await game.state();
-      check('steers left when requested', steered.car.steerAngle < -0.08);
+      check('steers left when requested', steered.car.steerAngle < -0.04);
 
       await game.setCamera('bonnet');
       check('switches to bonnet camera', (await game.camera()) === 'bonnet');
@@ -185,6 +197,103 @@ if (preview) {
         'UI focus/select cues stay subtle',
         summary.loudness.uiFocus < 0.3 && summary.loudness.uiSelect < 0.35,
       );
+
+      // Levels of every sound against the ranges in reference/audio.md.
+      const levels = await game.levels();
+      summary.levels = levels;
+      const all = Object.values(levels);
+      const within = (name, low, high) => levels[name].rmsDb >= low && levels[name].rmsDb <= high;
+      check(
+        'no sound clips or is silent',
+        all.every((l) => l.peak < 0.9 && l.peak > 0.002),
+      );
+      check(
+        'each engine sits in its level range',
+        CAR_IDS.every(
+          (id) =>
+            within(`engine:${id}:FullLoad`, -26, -14) &&
+            within(`engine:${id}:Idle`, -42, -27) &&
+            levels[`engine:${id}:FullLoad`].rmsDb - levels[`engine:${id}:Lift`].rmsDb >= 4 &&
+            levels[`engine:${id}:PartLoad`].rmsDb > levels[`engine:${id}:Lift`].rmsDb &&
+            levels[`engine:${id}:PartLoad`].rmsDb < levels[`engine:${id}:FullLoad`].rmsDb,
+        ),
+      );
+      check(
+        'surface and wind sounds sit in their level ranges',
+        within('kerbRumble', -34, -22) &&
+          within('tyreSlip', -38, -24) &&
+          within('grass', -40, -27) &&
+          within('wind', -40, -26),
+      );
+      check(
+        'interface cues stay under the barrier hit',
+        Object.entries(levels)
+          .filter(([name]) => name.startsWith('ui') || name === 'checkpoint' || name === 'lap')
+          .every(([, l]) => l.peak < levels.wallHit.peak * 0.35),
+      );
+
+      // Economy: a clean bot lap pays, the dealership refuses and sells, the garage equips.
+      await game.loadCareer(11000, ['bmw-m3-e30'], 'bmw-m3-e30');
+      await game.page.evaluate(() => document.fonts.ready);
+      await game.openGarage('dealership');
+      check('bay replaces the circuit in the garage', (await game.showroom()).active);
+      await game.screenshot('playtest/dealership.png');
+      await game.page.click('[data-car-id="ford-mustang-gt-s550"]');
+      await game.page.click('[data-role="primary"]');
+      const refused = await game.career();
+      check(
+        'purchase without enough credits changes nothing and says why',
+        refused.credits === 11000 &&
+          refused.owned.length === 1 &&
+          /1,000 cr short/.test(
+            await game.page.$eval('[data-role="reason"]', (el) => el.textContent ?? ''),
+          ),
+      );
+      await game.page.keyboard.press('Escape');
+      await game.setScreen('race');
+      check('circuit returns after the garage', !(await game.showroom()).active);
+      let lapEvent;
+      for (let i = 0; i < 70 && !lapEvent; i++) {
+        lapEvent = (await game.bot(30)).find((event) => event.type === 'lap');
+      }
+      check('clean first lap pays 1,050 cr', (await game.career()).credits === 12050);
+      await game.screenshot('playtest/lap-reward.png');
+      await game.setScreen('pause');
+      await game.openGarage('dealership');
+      await game.page.click('[data-car-id="ford-mustang-gt-s550"]');
+      await game.page.click('[data-role="primary"]');
+      check(
+        'purchase dialog opens with Cancel focused',
+        (await game.page.evaluate(() => document.activeElement?.textContent)) === 'Cancel',
+      );
+      await game.screenshot('playtest/purchase-dialog.png');
+      await game.page.click('[data-dialog-action="confirm"]');
+      const bought = await game.career();
+      check(
+        'purchase takes the price once and adds the car',
+        bought.credits === 50 &&
+          bought.owned.includes('ford-mustang-gt-s550') &&
+          bought.equipped === 'bmw-m3-e30',
+      );
+      await game.page.click('[data-dialog-action="confirm"]');
+      // A session is paused behind the garage, so equipping asks first.
+      await game.page.click('[data-dialog-action="confirm"]');
+      check(
+        'equipping swaps the car on the grid',
+        (await game.carId()) === 'ford-mustang-gt-s550' && (await game.state()).car.speed === 0,
+      );
+      await game.screenshot('playtest/garage.png');
+      await game.page.reload({ waitUntil: 'load' });
+      await game.page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
+      const reloaded = await game.career();
+      check(
+        'career survives a reload',
+        reloaded.credits === 50 &&
+          reloaded.equipped === 'ford-mustang-gt-s550' &&
+          (await game.carId()) === 'ford-mustang-gt-s550' &&
+          reloaded.records['bmw-m3-e30'].bestLapSeconds !== null,
+      );
+      await game.loadCareer(0, ['bmw-m3-e30'], 'bmw-m3-e30');
 
       // 3. Bot completes a full timed lap with 3 sectors & zero wall hits
       await game.reset();

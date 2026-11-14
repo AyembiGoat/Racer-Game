@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBot } from './bot';
-import { CAR_TUNING, NO_INPUT } from './car';
+import { NO_INPUT } from './car';
+import { CARS, STARTER_CAR_ID } from './cars';
 import { SIM_STEP_SECONDS } from './fixedLoop';
 import type { GameEvent, GameInput, GameState } from './game';
 import { createGame, stepGame } from './game';
@@ -9,6 +10,8 @@ import { analyseTrackWaypoints, gateAcrossTrack, projectOntoTrack } from './trac
 import { clubCircuit } from './tracks/clubCircuit';
 
 const dt = SIM_STEP_SECONDS;
+const car = CARS[STARTER_CAR_ID];
+const newGame = (track: Track) => createGame(track, car);
 
 const miniWaypoints = [
   { x: 20, z: 0 },
@@ -39,7 +42,7 @@ function run(state: GameState, input: GameInput, steps: number, track = miniLoop
   const events: GameEvent[] = [];
   let current = state;
   for (let i = 0; i < steps; i++) {
-    const result = stepGame(current, input, dt, track);
+    const result = stepGame(current, input, dt, track, car);
     current = result.state;
     events.push(...result.events);
   }
@@ -49,20 +52,24 @@ function run(state: GameState, input: GameInput, steps: number, track = miniLoop
 describe('stepGame barriers, surfaces and checkpoints', () => {
   it('detects grass run-off before confining the car at the outer guardrail', () => {
     const start: GameState = {
-      ...createGame(miniLoop),
+      ...newGame(miniLoop),
       car: {
-        ...createGame(miniLoop).car,
+        ...newGame(miniLoop).car,
         heading: -Math.PI / 2, // Aim across the grass verge toward the outer east guardrail.
       },
     };
-    const ontoKerb = run(start, { ...NO_INPUT, throttle: 1 }, 45);
-    expect(ontoKerb.state.surface).toBe('kerb');
-
-    const ontoVerge = run(ontoKerb.state, { ...NO_INPUT, throttle: 1 }, 14);
-    expect(ontoVerge.state.surface).toBe('grass');
-
-    const intoWall = run(ontoVerge.state, { ...NO_INPUT, throttle: 1 }, 45);
-    const maxOffset = miniLoop.roadWidth / 2 + miniLoop.vergeWidth - CAR_TUNING.width / 2;
+    const seen: string[] = [];
+    let state = start;
+    const events: GameEvent[] = [];
+    for (let i = 0; i < 240; i++) {
+      const step = run(state, { ...NO_INPUT, throttle: 1 }, 1);
+      state = step.state;
+      events.push(...step.events);
+      if (seen[seen.length - 1] !== state.surface) seen.push(state.surface);
+    }
+    expect(seen.slice(0, 3)).toEqual(['tarmac', 'kerb', 'grass']);
+    const intoWall = { state, events };
+    const maxOffset = miniLoop.roadWidth / 2 + miniLoop.vergeWidth - car.real.width / 2;
     const projection = projectOntoTrack(miniLoop, intoWall.state.car.position);
 
     expect(projection.distance).toBeLessThanOrEqual(maxOffset + 1e-4);
@@ -70,14 +77,14 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
   });
 
   it('ignores the finish line until all prior checkpoints are crossed in order', () => {
-    const acrossStart = run(createGame(miniLoop), { ...NO_INPUT, throttle: 1 }, 60);
+    const acrossStart = run(newGame(miniLoop), { ...NO_INPUT, throttle: 1 }, 60);
     expect(acrossStart.state.completedLaps).toBe(0);
     expect(acrossStart.state.nextCheckpoint).toBe(0);
 
     const atCheckpoint0: GameState = {
-      ...createGame(miniLoop),
+      ...newGame(miniLoop),
       car: {
-        ...createGame(miniLoop).car,
+        ...newGame(miniLoop).car,
         position: { x: -2, z: -20 },
         heading: Math.PI / 2,
       },
@@ -88,7 +95,7 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
 
   it('records lap count, last lap and best lap when all checkpoints are crossed', () => {
     const finishReady: GameState = {
-      ...createGame(miniLoop),
+      ...newGame(miniLoop),
       currentLapSeconds: 14.5,
       nextCheckpoint: 2,
     };
@@ -105,7 +112,7 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
 
     const fasterFinish: GameState = {
       ...lapOne.state,
-      car: createGame(miniLoop).car,
+      car: newGame(miniLoop).car,
       currentLapSeconds: 11.2,
       nextCheckpoint: 2,
     };
@@ -119,9 +126,9 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
   it('tracks sector splits in order, computes checkpoint deltas, and resets splits on new lap', () => {
     // Cross checkpoint 0 moving west along the north straight.
     const beforeCp0: GameState = {
-      ...createGame(miniLoop),
+      ...newGame(miniLoop),
       car: {
-        ...createGame(miniLoop).car,
+        ...newGame(miniLoop).car,
         position: { x: 4, z: -20 },
         heading: Math.PI / 2,
       },
@@ -142,7 +149,7 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
     const beforeCp1: GameState = {
       ...afterCp0.state,
       car: {
-        ...createGame(miniLoop).car,
+        ...newGame(miniLoop).car,
         position: { x: -4, z: 20 },
         heading: -Math.PI / 2,
       },
@@ -155,7 +162,7 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
     // Finish lap 1, establishing bestLapSplits for lap 2 comparison.
     const beforeFinish: GameState = {
       ...afterCp1.state,
-      car: createGame(miniLoop).car,
+      car: newGame(miniLoop).car,
       currentLapSeconds: 16,
     };
     const lapOneDone = run(beforeFinish, { ...NO_INPUT, throttle: 1 }, 60);
@@ -168,7 +175,7 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
     const lapTwoFasterCp0: GameState = {
       ...lapOneDone.state,
       car: {
-        ...createGame(miniLoop).car,
+        ...newGame(miniLoop).car,
         position: { x: 4, z: -20 },
         heading: Math.PI / 2,
       },
@@ -181,11 +188,25 @@ describe('stepGame barriers, surfaces and checkpoints', () => {
     expect(afterLapTwoCp0.state.bestSectors[0]).toBe(afterLapTwoCp0.state.currentSectors[0]);
   });
 
+  it('counts barrier contacts per lap and clears the count at the finish line', () => {
+    const scuffed: GameState = {
+      ...newGame(miniLoop),
+      currentLapSeconds: 14.5,
+      nextCheckpoint: 2,
+      lapWallHits: 2,
+    };
+    const lap = run(scuffed, { ...NO_INPUT, throttle: 1 }, 60);
+    const event = lap.events.find((e) => e.type === 'lap');
+    expect(event?.type === 'lap' && event.wallHits).toBe(2);
+    expect(lap.state.lapHistory[0]?.wallHits).toBe(2);
+    expect(lap.state.lapWallHits).toBe(0);
+  });
+
   it('accumulates odometer distanceMetres strictly while moving', () => {
-    const parked = run(createGame(miniLoop), NO_INPUT, 30);
+    const parked = run(newGame(miniLoop), NO_INPUT, 30);
     expect(parked.state.distanceMetres).toBe(0);
 
-    const driven = run(createGame(miniLoop), { ...NO_INPUT, throttle: 1 }, 120);
+    const driven = run(newGame(miniLoop), { ...NO_INPUT, throttle: 1 }, 120);
     expect(driven.state.distanceMetres).toBeGreaterThan(15);
   });
 });
@@ -199,13 +220,13 @@ describe('Club Circuit', () => {
   });
 
   it('can be lapped cleanly by the bot using only player inputs', () => {
-    const bot = createBot(clubCircuit);
-    let state = createGame(clubCircuit);
+    const bot = createBot(clubCircuit, car);
+    let state = createGame(clubCircuit, car);
     const events: GameEvent[] = [];
     const maxSteps = 60 * 90;
 
     for (let i = 0; i < maxSteps && state.completedLaps < 2; i++) {
-      const step = stepGame(state, bot(state), dt, clubCircuit);
+      const step = stepGame(state, bot(state), dt, clubCircuit, car);
       state = step.state;
       events.push(...step.events);
     }

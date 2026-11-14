@@ -2,13 +2,17 @@
 
 A racing and driving game that runs in the browser, built with TypeScript and Three.js.
 
-**Status: first playable slice.** One car (the 1989 BMW M3) with automatic 5-speed
-gearing and weight transfer, one sunlit track (Club Circuit) with left-and-right
-S-bends, red-and-white kerbs, grass run-off verges, braking boards and steel
-guardrails, synthesised engine/tyre/kerb/impact sound, chase and bonnet cameras, a
-works pit-wall timing HUD and menu system (live title showcase, sector splits, minimap,
-pause summary, persisted settings and rebindable controls), and a bot that laps the
-circuit using player inputs.
+**Status: first playable slice.** Four cars (1989 BMW M3, 1990 Mazda MX-5, 2015 Ford
+Mustang GT, 2006 Porsche Cayman S), each with its own mass, power curve, gearing, grip
+and engine sound. You start in the M3; completed laps earn credits (more for a lap with
+no barrier contact and for a real improvement on your best), credits buy the other cars
+in the dealership, and the garage switches between cars you own. Progress is saved in
+the browser. One sunlit track (Club Circuit) with kerbs, grass verges, braking boards
+and steel guardrails, synthesised sound, chase and bonnet cameras, a pit-wall timing HUD
+and menu system, and a bot that laps the circuit in every car using player inputs.
+
+The cars are low-detail models and acceleration is quicker than the real cars; see
+`reference/handling.md` and `reference/cars.md` for what is and is not to scale.
 
 ## Quick start
 
@@ -64,14 +68,16 @@ Add `?bot` to the URL to watch the bot drive laps.
 
 ```
 src/
-  core/            Driving and race rules: car handling, gears, surfaces, checkpoints, bot
+  core/            Driving and race rules: car catalog, handling, gears, surfaces, checkpoints,
+                   bot, credits and purchases
   core/tracks/     Circuits as plain data
-  game/            Browser shell: Three.js world, BMW M3 model, cameras, input
+  game/            Browser shell: Three.js world, cameras, input, garage bay, saved career
+  game/cars/       Car body shapes, lofted shell builder and wheels
   game/ui/         Pit-wall timing HUD, menus, settings, rebindable controls and bundled fonts
   game/materials/  Shared procedural PBR surface library
   game/audio/      Synthesised engine, tyre, kerb, wind, UI and impact audio
 scripts/           Headless-browser playtest
-reference/         Reference images and UI design notes (`ui-notes.md`)
+reference/         Reference images and design notes: cars, handling, economy, audio, garage UI
 .agents/           Playbooks (skills) for AI agents, indexed in skills.md
 AGENTS.md          Rules and architecture for anyone changing the code
 ```

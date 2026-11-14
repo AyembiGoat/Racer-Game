@@ -1,9 +1,12 @@
 import * as THREE from 'three';
-import { CAR_TUNING } from '../core/car';
+import type { CarSpec } from '../core/cars';
+import { carAnchors } from '../core/cars';
 import type { GameState } from '../core/game';
 import type { Track } from '../core/track';
 import { clamp, headingForward, headingRight, lerp, lerpAngle } from '../core/vec';
 import { buildCarModel } from './carModel';
+import type { BayFrame } from './showroom';
+import { createShowroom } from './showroom';
 import { buildWorld } from './world';
 
 export type CameraMode = 'chase' | 'bonnet';
@@ -12,7 +15,7 @@ const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio, 1.75);
 const MIN_PIXEL_RATIO = 0.7;
 const SKID_POOL_SIZE = 220;
 
-export function createView(track: Track) {
+export function createView(track: Track, initialCar: CarSpec) {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: 'high-performance',
@@ -26,8 +29,12 @@ export function createView(track: Track) {
   document.body.prepend(renderer.domElement);
 
   const world = buildWorld(track, renderer);
-  const carModel = buildCarModel();
+  let car = initialCar;
+  let anchors = carAnchors(car);
+  let carModel = buildCarModel(car);
   world.scene.add(carModel.root);
+  const showroom = createShowroom(world.scene.environment);
+  let showroomActive = false;
 
   // Pre-allocated ring buffer of rear-tyre marks on tarmac when sliding hard.
   const skidGeo = new THREE.PlaneGeometry(0.24, 0.95);
@@ -52,7 +59,7 @@ export function createView(track: Track) {
 
   let cameraMode: CameraMode = 'chase';
   let chaseYaw = track.spawn.heading;
-  let chaseDistance = 6.2;
+  let chaseDistance = anchors.chaseCamera.distance;
   let skidCursor = 0;
   let skidCooldown = 0;
   let slowSeconds = 0;
@@ -77,7 +84,10 @@ export function createView(track: Track) {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    if (hasRendered) {
+    if (showroomActive) {
+      showroom.invalidate();
+      showroom.render(renderer);
+    } else if (hasRendered) {
       renderer.render(world.scene, camera);
     }
   });
@@ -87,6 +97,51 @@ export function createView(track: Track) {
 
     compileShaders() {
       renderer.compile(world.scene, camera);
+    },
+
+    /** Swaps the car on the circuit. */
+    setCar(next: CarSpec) {
+      if (next.id === car.id) return;
+      world.scene.remove(carModel.root);
+      carModel.dispose();
+      car = next;
+      anchors = carAnchors(car);
+      carModel = buildCarModel(car);
+      world.scene.add(carModel.root);
+      chaseDistance = anchors.chaseCamera.distance;
+      clearSkids();
+    },
+
+    /** Shows the bay instead of the circuit, or returns to the circuit and frees the bay car. */
+    setShowroom(active: boolean) {
+      showroomActive = active;
+      if (active) showroom.invalidate();
+      else showroom.clear();
+    },
+
+    isShowroom: () => showroomActive,
+
+    showroomCar(next: CarSpec) {
+      showroom.setCar(next);
+    },
+
+    showroomFrame(frame: BayFrame | null) {
+      showroom.setFrame(frame, window.innerWidth, window.innerHeight);
+    },
+
+    showroomOrbit(yawDelta: number, pitchDelta: number) {
+      showroom.orbit(yawDelta, pitchDelta);
+    },
+
+    showroomResetView() {
+      showroom.resetView();
+    },
+
+    showroomAngles: () => showroom.orbitAngles(),
+
+    /** Draws the bay when it has changed. */
+    renderShowroom(): boolean {
+      return showroom.render(renderer);
     },
 
     camera(): CameraMode {
@@ -126,7 +181,7 @@ export function createView(track: Track) {
 
     resetCamera(heading: number) {
       chaseYaw = heading;
-      chaseDistance = 6.2;
+      chaseDistance = anchors.chaseCamera.distance;
       clearSkids();
     },
 
@@ -191,8 +246,8 @@ export function createView(track: Track) {
         skidCooldown = 0.03;
         const nose = headingForward(carHeading);
         const right = headingRight(carHeading);
-        const halfWB = CAR_TUNING.wheelbase / 2;
-        const halfTrack = CAR_TUNING.width / 2 - 0.14;
+        const halfWB = anchors.rearWheel.z;
+        const halfTrack = anchors.rearWheel.x;
         for (const side of [-1, 1]) {
           skidDummy.position.set(
             carX - nose.x * halfWB + right.x * side * halfTrack,
@@ -211,9 +266,9 @@ export function createView(track: Track) {
         if (!reducedMotion && dtSeconds > 0) {
           showcaseAngle += dtSeconds * 0.08;
         }
-        // Slow pit-lane three-quarter hero orbit framing the BMW M3 on the right-centre,
+        // Slow pit-lane three-quarter orbit framing the car on the right-centre,
         // keeping the left viewport open for the title menu.
-        const radius = 5.6;
+        const radius = anchors.orbitDistance * 0.86;
         const orbitAngle = carHeading + showcaseAngle;
         const camOffsetX = Math.sin(orbitAngle) * radius;
         const camOffsetZ = Math.cos(orbitAngle) * radius;
@@ -235,8 +290,8 @@ export function createView(track: Track) {
         const yawFollow = dtSeconds > 0 ? 1 - Math.exp(-6.2 * dtSeconds) : 1;
         chaseYaw = lerpAngle(chaseYaw, carHeading, yawFollow);
 
-        const speedRatio = clamp(Math.abs(current.car.speed) / CAR_TUNING.maxSpeed, 0, 1);
-        const desiredDistance = 6.15 + speedRatio * 0.7;
+        const speedRatio = clamp(Math.abs(current.car.speed) / car.sim.maxSpeed, 0, 1);
+        const desiredDistance = anchors.chaseCamera.distance + speedRatio * 0.7;
         chaseDistance =
           dtSeconds > 0
             ? lerp(chaseDistance, desiredDistance, 1 - Math.exp(-5 * dtSeconds))
@@ -246,7 +301,7 @@ export function createView(track: Track) {
           const camForward = headingForward(chaseYaw);
           camera.position.set(
             carX - camForward.x * chaseDistance,
-            2.12,
+            anchors.chaseCamera.height,
             carZ - camForward.z * chaseDistance,
           );
           const nose = headingForward(carHeading);
@@ -254,13 +309,14 @@ export function createView(track: Track) {
           camera.lookAt(lookTarget);
         } else {
           const nose = headingForward(carHeading);
-          camera.position.set(carX + nose.x * 0.48, 1.2, carZ + nose.z * 0.48);
+          const ahead = -anchors.bonnetCamera.z;
+          camera.position.set(carX + nose.x * ahead, anchors.bonnetCamera.y, carZ + nose.z * ahead);
           lookTarget.set(carX + nose.x * 28, 0.84, carZ + nose.z * 28);
           camera.lookAt(lookTarget);
         }
       }
 
-      if (draw) {
+      if (draw && !showroomActive) {
         world.moveShadowFocus(carX, carZ);
         renderer.render(world.scene, camera);
         hasRendered = true;

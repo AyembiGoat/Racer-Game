@@ -1,10 +1,16 @@
 import { createBot } from '../core/bot';
 import { NO_INPUT } from '../core/car';
+import type { LapReward } from '../core/career';
+import type { CarId, CarSpec } from '../core/cars';
+import { CARS, isCarId, STARTER_CAR_ID } from '../core/cars';
+import type { CarEstimates } from '../core/estimates';
+import { estimateCar } from '../core/estimates';
 import { createFixedLoop, SIM_STEP_SECONDS } from '../core/fixedLoop';
 import type { GameEvent, GameInput, GameState } from '../core/game';
 import { createGame, stepGame } from '../core/game';
 import { clubCircuit } from '../core/tracks/clubCircuit';
-import { createAudio, measureSounds } from './audio';
+import { createAudio, measureLevels, measureSounds } from './audio';
+import { createCareerStore } from './career';
 import { showCar } from './carModel';
 import { createHumanInput } from './input';
 import { showMaterials } from './materials/preview';
@@ -16,7 +22,8 @@ import { createView } from './view';
  *   (default)   title screen, settings, controls, HUD, and keyboard driving.
  *   ?bot        the bot drives laps in real time, to watch.
  *   ?materials  every surface side by side, to check textures.
- *   ?car        the BMW M3 from four angles, to check proportions and wheel clearance.
+ *   ?car=<id>   one car from four angles, to check proportions and wheel clearance.
+ *               Ids are listed in core/cars.ts; without an id the starter car is shown.
  *   ?auto       nothing moves until a script calls window.__racer. Used by
  *               `npm run playtest` so an agent can drive the game and take screenshots.
  */
@@ -33,11 +40,38 @@ const mode = query.has('materials')
 
 function runGame(gameMode: 'auto' | 'bot' | 'play') {
   const track = clubCircuit;
-  const audio = createAudio();
-  const view = createView(track);
-  const bot = createBot(track);
+  const career = createCareerStore();
+  let car: CarSpec = CARS[career.get().equipped];
+  const audio = createAudio(car);
+  const view = createView(track, car);
+  let bot = createBot(track, car);
 
-  let previous = createGame(track);
+  let previous = createGame(track, car);
+  let sessionCredits = 0;
+  let lastReward: LapReward | null = null;
+  // Distance is added up here and written to the save at laps, pauses and exits, not per step.
+  let unsavedMetres = 0;
+  const estimates = new Map<CarId, CarEstimates>();
+
+  function flushDistance() {
+    if (unsavedMetres <= 0) return;
+    career.addDistance(car.id, unsavedMetres);
+    unsavedMetres = 0;
+  }
+
+  /** Puts the equipped car on the grid: physics, model, engine voice and bot. */
+  function useCar(next: CarSpec) {
+    flushDistance();
+    car = next;
+    bot = createBot(track, car);
+    view.setCar(car);
+    audio.setCar(car);
+    sessionCredits = 0;
+    lastReward = null;
+    resetToGrid(false);
+    ui.screens.refreshCar();
+  }
+
   let state = previous;
   let lastInput: GameInput = NO_INPUT;
   let audioUnlocked = false;
@@ -68,7 +102,8 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   }
 
   function resetToGrid(withVeil = false) {
-    previous = createGame(track);
+    flushDistance();
+    previous = createGame(track, car);
     state = previous;
     lastInput = NO_INPUT;
     view.resetCamera(track.spawn.heading);
@@ -78,7 +113,9 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   }
 
   function enterScreen(next: ScreenName) {
+    if (next !== 'race') flushDistance();
     ui.setScreen(next);
+    view.setShowroom(false);
     const isTitle = next === 'title' || next === 'loading';
     view.setTitleShowcase(isTitle);
     human?.setCaptureEnabled(next === 'race');
@@ -93,7 +130,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
 
   let prevDefaultCamera: 'chase' | 'bonnet' | null = null;
 
-  const ui = createUi(track, {
+  const ui = createUi(track, career, {
     onStartRace() {
       unlockAudioFromGesture();
       resetToGrid(false);
@@ -111,6 +148,8 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       enterScreen('race');
     },
     onQuitToTitle() {
+      sessionCredits = 0;
+      lastReward = null;
       resetToGrid(false);
       view.setCamera(ui.store.getSettings().defaultCamera);
       enterScreen('title');
@@ -124,7 +163,52 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     },
     getGameState: () => state,
     getCurrentCamera: () => view.camera(),
+    getCar: () => car,
+    getCredits: () => ({
+      balance: career.get().credits,
+      earnedThisSession: sessionCredits,
+      lastReward,
+    }),
+    onShowCar(shown) {
+      // The circuit is not drawn and the engine is silent while the bay is open.
+      view.setShowroom(true);
+      view.showroomCar(shown);
+      audio.update(state, 0, false);
+      view.renderShowroom();
+    },
+    onOrbit(yawDelta, pitchDelta) {
+      view.showroomOrbit(yawDelta, pitchDelta);
+      view.renderShowroom();
+    },
+    onResetView() {
+      view.showroomResetView();
+      view.renderShowroom();
+    },
+    onBayFrame(bay) {
+      if (!bay) {
+        view.setShowroom(false);
+        view.setTitleShowcase(ui.screen() === 'title');
+        view.frame(previous, state, 1, 0, false);
+        return;
+      }
+      view.showroomFrame(bay);
+      view.renderShowroom();
+    },
+    onEquipped(carId) {
+      useCar(CARS[carId]);
+    },
+    isSessionUnderway: () => state.completedLaps > 0 || state.elapsedSeconds > 0.5,
+    getEstimates(spec) {
+      let found = estimates.get(spec.id);
+      if (!found) {
+        found = estimateCar(spec, track);
+        estimates.set(spec.id, found);
+      }
+      return found;
+    },
   });
+
+  window.addEventListener('pagehide', flushDistance);
 
   prevDefaultCamera = ui.store.getSettings().defaultCamera;
   view.setCamera(prevDefaultCamera);
@@ -149,10 +233,22 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   function step(input: GameInput): GameEvent[] {
     previous = state;
     lastInput = input;
-    const result = stepGame(state, input, SIM_STEP_SECONDS, track);
+    const result = stepGame(state, input, SIM_STEP_SECONDS, track, car);
     state = result.state;
+    unsavedMetres += Math.abs(state.car.speed) * SIM_STEP_SECONDS;
     audio.handle(result.events);
     ui.hud.update(state, input, result.events, SIM_STEP_SECONDS);
+    for (const event of result.events) {
+      if (event.type !== 'lap') continue;
+      flushDistance();
+      lastReward = career.bankLap({
+        carId: car.id,
+        lapSeconds: event.timeSeconds,
+        wallHits: event.wallHits,
+      });
+      sessionCredits += lastReward.total;
+      ui.hud.showLapReward(lastReward, career.get().credits);
+    }
     return result.events;
   }
 
@@ -174,7 +270,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     window.__racer = {
       state: () => state,
       step: (input = {}, steps = 1) => run(steps, () => ({ ...NO_INPUT, ...input })),
-      bot: (steps = 1) => run(steps, bot),
+      bot: (steps = 1) => run(steps, (current) => bot(current)),
       camera: () => view.camera(),
       setCamera: (cameraMode) => {
         view.setCamera(cameraMode);
@@ -188,6 +284,10 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       },
       screen: () => ui.screen(),
       setScreen: (screen) => {
+        if (screen === 'garage') {
+          ui.openGarage('garage');
+          return;
+        }
         if (screen === 'settings' || screen === 'controls') {
           ui.openSubscreen(screen);
         } else {
@@ -195,6 +295,29 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
         }
         view.frame(previous, state, 1, 0, lastInput.brake > 0);
       },
+      openGarage: (tab) => {
+        ui.openGarage(tab);
+      },
+      car: () => car.id,
+      career: () => career.get(),
+      setCareer: (credits, owned, equipped) => {
+        // Drop distance not yet saved so leaving the page does not write the old career back.
+        unsavedMetres = 0;
+        window.localStorage.setItem(
+          'racer-game.career.v1',
+          JSON.stringify({
+            schema: 1,
+            credits,
+            owned,
+            equipped,
+            records: Object.fromEntries(
+              Object.keys(CARS).map((id) => [id, { bestLapSeconds: null, distanceMetres: 0 }]),
+            ),
+          }),
+        );
+      },
+      levels: measureLevels,
+      showroom: () => ({ active: view.isShowroom(), ...view.showroomAngles() }),
       settings: () => ui.store.getSettings(),
       setSettings: (patch) => ui.store.setSettings(patch),
       bindings: () => ui.store.getBindings(),
@@ -295,6 +418,9 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       );
       audio.update(state, lastInput.throttle, true);
       view.frame(previous, state, alpha, elapsed, lastInput.brake > 0);
+    } else if (currentScreen === 'garage') {
+      audio.update(state, 0, false);
+      view.renderShowroom();
     } else {
       audio.update(state, 0, false);
       view.frame(previous, state, 1, elapsed, false);
@@ -310,7 +436,8 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
 if (mode === 'materials') {
   showMaterials();
 } else if (mode === 'car') {
-  showCar();
+  const requested = query.get('car') ?? '';
+  showCar(CARS[isCarId(requested) ? requested : STARTER_CAR_ID]);
 } else {
   runGame(mode);
 }

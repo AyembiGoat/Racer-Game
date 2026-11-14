@@ -58,7 +58,7 @@ the game looks right. For that, drive it:
 ```
 npm run playtest                  # accelerate, steer, brake, cameras, sound levels, then bot laps Club Circuit
 npm run playtest -- --materials   # every surface side by side
-npm run playtest -- --car         # the car from four angles
+npm run playtest -- --car         # every car from four angles (--car <id> for one)
 npm run playtest -- --keep before # also copy the screenshots to playtest/before/ to compare later
 npm run playtest -- --quick       # one screenshot on the starting grid
 ```

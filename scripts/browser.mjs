@@ -42,7 +42,7 @@ async function findBrowser() {
 /**
  * Open the game in automation, play, or preview mode.
  */
-export async function launchGame({ width = 1280, height = 720, mode = 'auto' } = {}) {
+export async function launchGame({ width = 1280, height = 720, mode = 'auto', query = '' } = {}) {
   const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
   await server.listen();
   const address = server.httpServer?.address();
@@ -72,7 +72,9 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
   });
 
   const baseUrl = `http://127.0.0.1:${address.port}/`;
-  const url = mode && mode !== 'play' ? `${baseUrl}?${mode}` : baseUrl;
+  // `query` is the full query string for cases such as `car=mazda-mx5-na`.
+  const search = query || (mode && mode !== 'play' ? mode : '');
+  const url = search ? `${baseUrl}?${search}` : baseUrl;
   await page.goto(url, { waitUntil: 'load' });
   if (mode === 'auto') {
     await page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
@@ -102,6 +104,17 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     setSettings: (patch) => page.evaluate((p) => window.__racer.setSettings(p), patch),
     bindings: () => page.evaluate(() => window.__racer.bindings()),
     loudness: () => page.evaluate(() => window.__racer.loudness()),
+    levels: () => page.evaluate(() => window.__racer.levels()),
+    openGarage: (tab) => page.evaluate((t) => window.__racer.openGarage(t), tab),
+    career: () => page.evaluate(() => window.__racer.career()),
+    carId: () => page.evaluate(() => window.__racer.car()),
+    showroom: () => page.evaluate(() => window.__racer.showroom()),
+    /** Write a career to storage and reload so the game starts from it. */
+    async loadCareer(credits, owned, equipped) {
+      await page.evaluate((c, o, e) => window.__racer.setCareer(c, o, e), credits, owned, equipped);
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
+    },
     setViewport: (w, h) => page.setViewport({ width: w, height: h }),
     async screenshot(file) {
       mkdirSync(path.dirname(file), { recursive: true });

@@ -105,3 +105,8 @@ export function formatKeyCode(code: string | null): string {
   };
   return map[code] ?? code;
 }
+
+/** Whole credits with thousands separators and the unit, e.g. `4,500 cr`. */
+export function formatCredits(credits: number): string {
+  return `${Math.round(credits).toLocaleString('en-US')} cr`;
+}

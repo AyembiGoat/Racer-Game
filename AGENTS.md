@@ -1,9 +1,11 @@
 # Racer Game
 
 A racing and driving game that runs in the browser. TypeScript, Three.js for rendering,
-Vite for dev and build, Vitest for tests. So far there is one car (the 1989 BMW M3),
-one circuit (Club Circuit) with kerbs, grass verges and steel guardrails, synthesised
-sound, lap timing and a bot that laps it. There are no opponent cars yet.
+Vite for dev and build, Vitest for tests. So far there are four cars (`src/core/cars.ts`; the
+1989 BMW M3 is the starter), one circuit (Club Circuit) with kerbs, grass verges and
+steel guardrails, synthesised sound, lap timing, a credit economy with a garage and
+dealership (`src/core/career.ts`, rules in `reference/economy.md`) and a bot that laps
+the circuit in every car. There are no opponent cars yet.
 
 Single-player for now. Replays, ghosts and multiplayer are planned for later, which is
 why the driving and race rules live in `src/core` with no browser code: that part can

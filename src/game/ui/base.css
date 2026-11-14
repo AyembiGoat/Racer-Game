@@ -53,7 +53,7 @@ canvas {
   flex-shrink: 0;
 }
 
-.ui-m3-silhouette {
+.ui-car-silhouette {
   width: 68px;
   height: 23px;
   color: var(--text-secondary);

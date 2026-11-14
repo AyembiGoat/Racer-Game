@@ -313,6 +313,51 @@
   font-weight: 600;
 }
 
+.hud-lap-reward {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border-strong);
+}
+
+.hud-lap-reward[hidden] {
+  display: none;
+}
+
+.hud-lap-reward-lines {
+  grid-row: 1 / span 2;
+  display: grid;
+  gap: 1px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.hud-lap-reward-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.hud-lap-reward-total {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-bright);
+  text-align: right;
+}
+
+.hud-lap-reward-balance {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 .hud-lap-banner-delta.is-faster {
   color: #6ee7a0;
 }

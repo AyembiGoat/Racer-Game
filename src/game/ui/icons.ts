@@ -16,7 +16,9 @@ export type IconName =
   | 'chevron-right'
   | 'surface-offtrack'
   | 'surface-kerb'
-  | 'slip';
+  | 'slip'
+  | 'garage'
+  | 'tag';
 
 const ICON_PATHS: Record<IconName, string> = {
   play: '<polygon points="7,5 19,12 7,19" />',
@@ -44,26 +46,12 @@ const ICON_PATHS: Record<IconName, string> = {
     '<line x1="4" y1="19" x2="8" y2="5" /><line x1="16" y1="19" x2="20" y2="5" /><path d="M10.5 14.5l1.5-4.5 1.5 4.5" /><line x1="9" y1="18" x2="15" y2="18" />',
   'surface-kerb':
     '<path d="M3 16l6-8h12l-6 8H3Z" /><line x1="9" y1="8" x2="6" y2="16" /><line x1="15" y1="8" x2="12" y2="16" />',
+  garage:
+    '<path d="M3 20V9.5L12 4l9 5.5V20" /><path d="M7 20v-7h10v7" /><line x1="7" y1="16.5" x2="17" y2="16.5" />',
+  tag: '<path d="M4 4h7.5l8.5 8.5-7.5 7.5L4 11.5V4Z" /><circle cx="8.2" cy="8.2" r="1.3" />',
   slip: '<path d="M5 17c2-3 2-6 0-9" /><path d="M11 18c2.5-3.5 2.5-7 0-11" /><path d="M17 17c2-3 2-6 0-9" />',
 };
 
 export function renderIcon(name: IconName, className = 'ui-icon'): string {
   return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
-}
-
-/** Side-profile 1989 BMW M3 (E30) silhouette drawn to real 4.35 m x 1.37 m proportions. */
-export function renderBmwM3Silhouette(className = 'ui-m3-silhouette'): string {
-  return `<svg class="${className}" viewBox="0 0 96 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M10 23.5H7.2l-1-2.5v-4.4l2.2-1.2 15.8-1.1 7.6-8.3h26.2l8.4 7.7 19.6 1.6 2.8 1.7v4.6l-1.3 1.9h-3.8" />
-    <path d="M6.8 15.2l-1.6-3.3h4.6l1.3 3.2" />
-    <path d="M33.2 8.2h23.4l5.4 5.5H27.8l5.4-5.5Z" />
-    <line x1="46.2" y1="8.2" x2="46.2" y2="13.7" />
-    <line x1="27.2" y1="23.5" x2="64.8" y2="23.5" />
-    <circle cx="20.4" cy="23.8" r="5.1" />
-    <circle cx="20.4" cy="23.8" r="2.2" />
-    <circle cx="72.4" cy="23.8" r="5.1" />
-    <circle cx="72.4" cy="23.8" r="2.2" />
-    <line x1="6.4" y1="18.6" x2="11.5" y2="18.6" />
-    <line x1="84.5" y1="18.2" x2="88.6" y2="18.2" />
-  </svg>`;
 }
