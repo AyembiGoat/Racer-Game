@@ -1,10 +1,9 @@
 # Racer Game
 
 A racing and driving game that runs in the browser. TypeScript, Three.js for rendering,
-Vite for dev and build, Vitest for tests. At baseline there is one grey-box placeholder
-car, one closed test circuit with barriers and checkpoints, lap timing, and a bot that
-drives laps so unit tests and headless browser playtests run end to end. There are no
-opponent cars, final art or sound yet.
+Vite for dev and build, Vitest for tests. So far there is one car (the 1989 BMW M3),
+one circuit (Club Circuit) with kerbs, grass verges and steel guardrails, synthesised
+sound, lap timing and a bot that laps it. There are no opponent cars yet.
 
 Single-player for now. Replays, ghosts and multiplayer are planned for later, which is
 why the driving and race rules live in `src/core` with no browser code: that part can
@@ -104,19 +103,21 @@ name such as "Apex GT", "Viper X", "Nitro Velocity" or "Neon Circuit". If a thin
 no established name, use a plain description and ask the owner. The same goes for code:
 `car`, `track`, `wall`, `checkpoint`, `lap`, not `vehicleEntity` or `raceManager`.
 
-### Art and design direction: not decided
+### Art direction: grounded and sunlit
 
-Neither the look of the game nor the exact driving style (arcade, simcade or
-simulation; circuit, street or rally) has been chosen yet. Until the owner chooses it
-and it is written in this section:
+This is the working direction, chosen while building the first playable slice. The
+owner can change it at any time; nobody else should.
 
-- Do not invent a style, theme or subgenre. UI is plain white text in the system font
-  with a soft shadow for legibility and no panels, frames or decorative gauges.
-  Geometry is untextured grey-box. The current scene is a baseline test circuit, not a
-  visual reference.
-- Do not add final art, colour palettes, custom fonts, HUD styling or post-processing.
-- If a task needs a visual or creative direction decision, ask the owner. When the
-  direction is being chosen, use the `frontend-design` skill to propose it.
+- The circuit looks like a real club track in clear afternoon sunlight: dark stone
+  asphalt with crisp white edge lines, red-and-white concrete apex kerbs, natural green
+  grass verges, galvanized steel guardrails and deciduous trees. Colour comes from
+  materials, the sky and the sun, not from coloured lights or post-processing.
+- Cars are real production or motorsport cars modelled to their real dimensions.
+- The HUD is plain white text in the system font with a soft shadow for legibility. No
+  panels, frames or decorative gauges.
+- Effects and sound follow what the car is actually doing: brake lights when braking,
+  rubber marks when sliding, engine tone opening with throttle load, kerb rumble on
+  kerbs, grass brush on verges.
 
 ## Reference images
 

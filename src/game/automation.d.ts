@@ -16,6 +16,8 @@ declare global {
       setCamera(mode: CameraMode): void;
       /** Reset car and lap timer to the starting grid. */
       reset(): void;
+      /** Peak loudness of each sound relative to a full barrier impact. */
+      loudness(): Promise<Record<string, number>>;
     };
   }
 }

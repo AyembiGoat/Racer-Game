@@ -6,11 +6,11 @@ description: How to build and change tracks, including layout, road width, corne
 # Track design
 
 A track is one data file in `src/core/tracks/`, typed by `src/core/track.ts`: a closed
-loop of centreline waypoints in driving order, a road width, a starting grid pose and
-an ordered list of checkpoint gates ending with the start/finish line.
-`testCircuit.ts` is the baseline example. Barrier collision, lap counting and the
-rendered road and walls are all built from that single description, so what the driver
-sees is what the car collides with.
+loop of centreline waypoints in driving order, signed curvature and kerb flags, road
+and grass-verge widths, a starting grid pose and an ordered list of checkpoint gates
+ending with the start/finish line. `clubCircuit.ts` is the example. Barrier collision,
+surface detection, lap counting and the rendered road, kerbs and guardrails are all
+built from that single description, so what the driver sees is what the car drives on.
 
 ## Rules
 

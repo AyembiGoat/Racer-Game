@@ -56,7 +56,9 @@ The checks prove the simulation is correct and the project builds. They do not p
 the game looks right. For that, drive it:
 
 ```
-npm run playtest                  # accelerate, steer, brake, switch cameras, then the bot drives a lap
+npm run playtest                  # accelerate, steer, brake, cameras, sound levels, then bot laps Club Circuit
+npm run playtest -- --materials   # every surface side by side
+npm run playtest -- --car         # the car from four angles
 npm run playtest -- --keep before # also copy the screenshots to playtest/before/ to compare later
 npm run playtest -- --quick       # one screenshot on the starting grid
 ```

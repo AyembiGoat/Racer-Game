@@ -2,10 +2,11 @@
 
 A racing and driving game that runs in the browser, built with TypeScript and Three.js.
 
-**Status: baseline.** One untextured grey-box placeholder car, one closed circuit (Test
-Circuit) with barriers and ordered checkpoints, lap timing, chase and bonnet cameras,
-and a scripted bot that laps the circuit using player inputs. Art direction, car roster
-and race modes have not been chosen yet.
+**Status: first playable slice.** One car (the 1989 BMW M3) with automatic 5-speed
+gearing and weight transfer, one sunlit track (Club Circuit) with left-and-right
+S-bends, red-and-white kerbs, grass run-off verges, braking boards and steel
+guardrails, synthesised engine/tyre/kerb/impact sound, chase and bonnet cameras, and a
+bot that laps the circuit using player inputs.
 
 ## Quick start
 
@@ -61,12 +62,15 @@ Add `?bot` to the URL to watch the bot drive laps.
 
 ```
 src/
-  core/          Driving and race rules: car physics, barriers, checkpoints, lap timer, bot
-  core/tracks/   Tracks as plain data
-  game/          Browser shell: Three.js view, cameras, keyboard input, HUD
-scripts/         Headless-browser playtest
-.agents/         Playbooks (skills) for AI agents, indexed in skills.md
-AGENTS.md        Rules and architecture for anyone changing the code
+  core/            Driving and race rules: car handling, gears, surfaces, checkpoints, bot
+  core/tracks/     Circuits as plain data
+  game/            Browser shell: Three.js world, BMW M3 model, cameras, input, HUD
+  game/materials/  Shared procedural PBR surface library
+  game/audio/      Synthesised engine, tyre, kerb, wind and impact audio
+scripts/           Headless-browser playtest
+reference/         Reference images the car and circuit were built from
+.agents/           Playbooks (skills) for AI agents, indexed in skills.md
+AGENTS.md          Rules and architecture for anyone changing the code
 ```
 
 The rules in `src/core` know nothing about rendering or the browser. They advance at a
@@ -77,9 +81,8 @@ enforce the boundary.
 ## Working with AI agents
 
 [`AGENTS.md`](AGENTS.md) holds the rules every agent follows: keep systems simple, no
-AI slop, ask before choosing art direction, work from reference images once building
-visuals, verify before committing, and explain results to the owner in plain language.
-`CLAUDE.md` points to it.
+AI slop, work from reference images, verify before committing, and explain results to
+the owner in plain language. `CLAUDE.md` points to it.
 
 [`skills.md`](skills.md) lists the playbooks in `.agents/skills/`. Eleven are written
 for this racing game. Five are vendored: two from Anthropic's skills repository and

@@ -21,8 +21,6 @@ async function findBrowser() {
   const { default: chromium } = await import('@sparticuz/chromium');
   const executablePath = await chromium.executablePath();
 
-  // The package carries the system libraries Chromium needs (NSS and friends) for
-  // machines that lack them. Unpack them once and put them on the library path.
   const libraries = path.join(tmpdir(), 'racer-game-chromium-libs');
   if (!existsSync(libraries)) {
     const require = createRequire(import.meta.url);
@@ -42,13 +40,14 @@ async function findBrowser() {
 }
 
 /**
- * Open the game in automation mode. Returns the page plus helpers:
+ * Open the game in automation or preview mode. Returns the page plus helpers:
  *   step(input, steps)  hold an input for a number of 60 Hz steps
  *   bot(steps)          let the bot drive
  *   state()             the current game state
  *   camera()            active camera mode (`chase` or `bonnet`)
  *   setCamera(mode)     switch camera mode
  *   reset()             return to the starting grid
+ *   loudness()          peak level of each sound relative to a barrier impact
  *   screenshot(file)    save what is on screen
  * `errors` collects anything the page logged as an error.
  */
@@ -63,7 +62,6 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     executablePath,
     env,
     headless: 'shell',
-    // Software WebGL: slow, but it works on machines with no graphics card.
     args: [
       '--no-sandbox',
       '--use-gl=angle',
@@ -86,6 +84,9 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
   if (mode === 'auto') {
     await page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
   }
+  if (mode === 'materials' || mode === 'car') {
+    await page.waitForFunction(() => document.body.dataset.ready === 'true', { timeout: 60000 });
+  }
 
   return {
     page,
@@ -97,6 +98,7 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     camera: () => page.evaluate(() => window.__racer.camera()),
     setCamera: (cameraMode) => page.evaluate((m) => window.__racer.setCamera(m), cameraMode),
     reset: () => page.evaluate(() => window.__racer.reset()),
+    loudness: () => page.evaluate(() => window.__racer.loudness()),
     async screenshot(file) {
       mkdirSync(path.dirname(file), { recursive: true });
       await page.screenshot({ path: file });

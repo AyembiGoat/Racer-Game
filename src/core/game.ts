@@ -1,7 +1,7 @@
-import type { CarInput, CarState } from './car';
+import type { CarInput, CarState, DrivingSurface } from './car';
 import { CAR_TUNING, createCar, stepCar } from './car';
 import type { Track } from './track';
-import { projectOntoTrack } from './track';
+import { projectOntoTrack, surfaceAtProjection } from './track';
 import { add2, dot2, forwardGateCrossing, headingForward, scale2, sub2 } from './vec';
 
 export type GameInput = CarInput;
@@ -9,10 +9,12 @@ export type GameInput = CarInput;
 export type GameEvent =
   | { readonly type: 'checkpoint'; readonly index: number }
   | { readonly type: 'lap'; readonly lap: number; readonly timeSeconds: number }
-  | { readonly type: 'wall-hit'; readonly impactSpeed: number };
+  | { readonly type: 'wall-hit'; readonly impactSpeed: number }
+  | { readonly type: 'gear-shift'; readonly gear: number };
 
 export interface GameState {
   readonly car: CarState;
+  readonly surface: DrivingSurface;
   readonly elapsedSeconds: number;
   readonly currentLapSeconds: number;
   readonly completedLaps: number;
@@ -24,6 +26,7 @@ export interface GameState {
 export function createGame(track: Track): GameState {
   return {
     car: createCar(track.spawn),
+    surface: 'tarmac',
     elapsedSeconds: 0,
     currentLapSeconds: 0,
     completedLaps: 0,
@@ -33,11 +36,18 @@ export function createGame(track: Track): GameState {
   };
 }
 
-function confineToBarriers(car: CarState, track: Track, events: GameEvent[]): CarState {
-  const maxOffset = Math.max(0.5, track.roadWidth / 2 - CAR_TUNING.width / 2);
+function confineToBarriers(
+  car: CarState,
+  track: Track,
+  events: GameEvent[],
+): { readonly car: CarState; readonly surface: DrivingSurface } {
+  const halfCorridor = track.roadWidth / 2 + track.vergeWidth;
+  const maxOffset = Math.max(0.5, halfCorridor - CAR_TUNING.width / 2);
   const projection = projectOntoTrack(track, car.position);
+  const surface = surfaceAtProjection(track, projection, CAR_TUNING.width / 2);
+
   if (projection.distance <= maxOffset || projection.distance < 1e-6) {
-    return car;
+    return { car, surface };
   }
 
   const offset = sub2(car.position, projection.point);
@@ -47,9 +57,9 @@ function confineToBarriers(car: CarState, track: Track, events: GameEvent[]): Ca
   const outwardSpeed = dot2(car.velocity, outward);
   let velocity = car.velocity;
   if (outwardSpeed > 0) {
-    // Remove velocity into the barrier and scrub speed proportionally to impact angle.
+    // Slide along the steel guardrail while scrubbing speed according to impact angle.
     const tangentVelocity = sub2(velocity, scale2(outward, outwardSpeed));
-    const scrub = Math.max(0.55, 1 - 0.35 * (outwardSpeed / CAR_TUNING.maxSpeed));
+    const scrub = Math.max(0.58, 1 - 0.32 * (outwardSpeed / CAR_TUNING.maxSpeed));
     velocity = scale2(tangentVelocity, scrub);
     if (outwardSpeed > 1.2) {
       events.push({ type: 'wall-hit', impactSpeed: outwardSpeed });
@@ -58,10 +68,13 @@ function confineToBarriers(car: CarState, track: Track, events: GameEvent[]): Ca
 
   const speed = dot2(velocity, headingForward(car.heading));
   return {
-    ...car,
-    position: clampedPosition,
-    velocity,
-    speed,
+    car: {
+      ...car,
+      position: clampedPosition,
+      velocity,
+      speed,
+    },
+    surface,
   };
 }
 
@@ -73,8 +86,13 @@ export function stepGame(
 ): { readonly state: GameState; readonly events: GameEvent[] } {
   const events: GameEvent[] = [];
   const prevPosition = state.car.position;
-  const steppedCar = stepCar(state.car, input, dt);
-  const car = confineToBarriers(steppedCar, track, events);
+  const prevGear = state.car.gear;
+  const steppedCar = stepCar(state.car, input, dt, state.surface);
+  const { car, surface } = confineToBarriers(steppedCar, track, events);
+
+  if (car.gear !== prevGear) {
+    events.push({ type: 'gear-shift', gear: car.gear });
+  }
 
   let currentLapSeconds = state.currentLapSeconds + dt;
   let completedLaps = state.completedLaps;
@@ -110,6 +128,7 @@ export function stepGame(
   return {
     state: {
       car,
+      surface,
       elapsedSeconds: state.elapsedSeconds + dt,
       currentLapSeconds,
       completedLaps,

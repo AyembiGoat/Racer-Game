@@ -5,19 +5,17 @@ description: How surfaces get their look once art direction is chosen. One share
 
 # Textures
 
-While the art direction in `AGENTS.md` is undecided, geometry stays untextured grey-box.
-Once the owner picks a direction and textured surfaces are built, every surface in the
-game must come from one shared library, `src/game/materials/`, so road asphalt,
-concrete barriers, kerbs, grass, rubber and car materials look like they belong to the
-same world.
+Every textured surface in the game comes from one library, `src/game/materials/`, so
+road asphalt, red-and-white kerbs, grass verges, steel guardrails, concrete and tyre
+rubber look like they belong to the same sunlit place.
 
 ## Pattern
 
-Expose named recipes from `src/game/materials/` rather than creating ad-hoc textures or
-materials in individual track or car files:
+Expose named recipes from `src/game/materials/recipes.ts` rather than creating ad-hoc
+textures in individual track or car files:
 
 ```ts
-import { surface, applySurface } from '../materials';
+import { surface, applySurface } from './materials';
 ```
 
 Map UVs in real metres so aggregate grain on an 11 m road matches the grain on a pit

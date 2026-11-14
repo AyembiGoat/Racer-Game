@@ -3,123 +3,163 @@ import { NO_INPUT } from '../core/car';
 import { createFixedLoop, SIM_STEP_SECONDS } from '../core/fixedLoop';
 import type { GameEvent, GameInput, GameState } from '../core/game';
 import { createGame, stepGame } from '../core/game';
-import { testCircuit } from '../core/tracks/testCircuit';
+import { clubCircuit } from '../core/tracks/clubCircuit';
+import { createAudio, measureSounds } from './audio';
+import { showCar } from './carModel';
 import { createHud } from './hud';
 import { createHumanInput } from './input';
+import { showMaterials } from './materials/preview';
 import { createView } from './view';
 
 /**
- * Three ways to run:
- *   (default)  a person drives with the keyboard.
- *   ?bot       the bot drives in real time, to watch.
- *   ?auto      nothing moves until a script calls window.__racer. Used by
- *              `npm run playtest` so an agent can drive the game and take screenshots.
+ * Ways to run:
+ *   (default)   a person drives with the keyboard.
+ *   ?bot        the bot drives laps in real time, to watch.
+ *   ?materials  every surface side by side, to check textures.
+ *   ?car        the BMW M3 from four angles, to check proportions and wheel clearance.
+ *   ?auto       nothing moves until a script calls window.__racer. Used by
+ *               `npm run playtest` so an agent can drive the game and take screenshots.
  */
 const query = new URLSearchParams(window.location.search);
-const mode = query.has('auto') ? 'auto' : query.has('bot') ? 'bot' : 'play';
+const mode = query.has('materials')
+  ? 'materials'
+  : query.has('car')
+    ? 'car'
+    : query.has('auto')
+      ? 'auto'
+      : query.has('bot')
+        ? 'bot'
+        : 'play';
 
-const track = testCircuit;
-const view = createView(track);
-const hud = createHud(track.name);
-const bot = createBot(track);
+function runGame(gameMode: 'auto' | 'bot' | 'play') {
+  const track = clubCircuit;
+  const audio = createAudio();
+  const view = createView(track);
+  const hud = createHud(track.name);
+  const bot = createBot(track);
 
-let previous = createGame(track);
-let state = previous;
-let lastInput: GameInput = NO_INPUT;
+  let previous = createGame(track);
+  let state = previous;
+  let lastInput: GameInput = NO_INPUT;
 
-function resetToGrid() {
-  previous = createGame(track);
-  state = previous;
-  lastInput = NO_INPUT;
-  view.resetCamera(track.spawn.heading);
-  hud.update(state);
-}
-
-function step(input: GameInput): GameEvent[] {
-  previous = state;
-  lastInput = input;
-  const result = stepGame(state, input, SIM_STEP_SECONDS, track);
-  state = result.state;
-  hud.update(state);
-  return result.events;
-}
-
-const overlay = document.getElementById('overlay');
-hud.update(state);
-
-if (mode === 'auto') {
-  if (overlay) overlay.hidden = true;
-
-  const run = (steps: number, chooseInput: (current: GameState) => GameInput) => {
-    const events: GameEvent[] = [];
-    for (let i = 0; i < steps; i++) {
-      const input = chooseInput(state);
-      events.push(...step(input));
-      view.frame(previous, state, 1, SIM_STEP_SECONDS, input.brake > 0, i === steps - 1);
-    }
-    return events;
-  };
-
-  window.__racer = {
-    state: () => state,
-    step: (input = {}, steps = 1) => run(steps, () => ({ ...NO_INPUT, ...input })),
-    bot: (steps = 1) => run(steps, bot),
-    camera: () => view.camera(),
-    setCamera: (cameraMode) => {
-      view.setCamera(cameraMode);
-      view.frame(previous, state, 1, 0, lastInput.brake > 0);
-    },
-    reset: () => {
-      resetToGrid();
-      view.frame(previous, state, 1, 0, false);
-    },
-  };
-
-  view.frame(previous, state, 1, 0, false);
-} else {
-  const human = createHumanInput();
-  const loop = createFixedLoop();
-  let paused = mode === 'play';
-  let lastTime = performance.now();
-
-  const setPaused = (nextPaused: boolean) => {
-    paused = nextPaused;
-    if (overlay) overlay.hidden = !paused;
-    human.clear();
-  };
-
-  if (mode === 'bot') {
-    setPaused(false);
-  } else {
-    overlay?.addEventListener('click', () => {
-      setPaused(false);
-    });
-    window.addEventListener('keydown', (event) => {
-      if (paused && (event.code === 'Enter' || event.code === 'Space')) {
-        event.preventDefault();
-        setPaused(false);
-      }
-    });
+  function resetToGrid() {
+    previous = createGame(track);
+    state = previous;
+    lastInput = NO_INPUT;
+    view.resetCamera(track.spawn.heading);
+    hud.update(state);
   }
 
-  const frame = (now: number) => {
-    const elapsed = Math.min((now - lastTime) / 1000, 0.25);
-    lastTime = now;
+  function step(input: GameInput): GameEvent[] {
+    previous = state;
+    lastInput = input;
+    const result = stepGame(state, input, SIM_STEP_SECONDS, track);
+    state = result.state;
+    audio.handle(result.events);
+    hud.update(state);
+    return result.events;
+  }
 
-    const actions = human.consumeActions();
-    if (actions.cycleCamera) view.cycleCamera();
-    if (mode === 'play' && !paused) {
-      if (actions.reset) resetToGrid();
-      if (actions.pause) setPaused(true);
+  const overlay = document.getElementById('overlay');
+  hud.update(state);
+
+  if (gameMode === 'auto') {
+    if (overlay) overlay.hidden = true;
+
+    const run = (steps: number, chooseInput: (current: GameState) => GameInput) => {
+      const events: GameEvent[] = [];
+      for (let i = 0; i < steps; i++) {
+        const input = chooseInput(state);
+        events.push(...step(input));
+        view.frame(previous, state, 1, SIM_STEP_SECONDS, input.brake > 0, i === steps - 1);
+      }
+      return events;
+    };
+
+    window.__racer = {
+      state: () => state,
+      step: (input = {}, steps = 1) => run(steps, () => ({ ...NO_INPUT, ...input })),
+      bot: (steps = 1) => run(steps, bot),
+      camera: () => view.camera(),
+      setCamera: (cameraMode) => {
+        view.setCamera(cameraMode);
+        view.frame(previous, state, 1, 0, lastInput.brake > 0);
+      },
+      reset: () => {
+        resetToGrid();
+        view.frame(previous, state, 1, 0, false);
+      },
+      loudness: measureSounds,
+    };
+
+    view.frame(previous, state, 1, 0, false);
+  } else {
+    const human = createHumanInput();
+    const loop = createFixedLoop();
+    let paused = gameMode === 'play';
+    let lastTime = performance.now();
+
+    const setPaused = (nextPaused: boolean) => {
+      paused = nextPaused;
+      if (overlay) overlay.hidden = !paused;
+      human.clear();
+      audio.update(state, 0, !paused);
+    };
+
+    if (gameMode === 'bot') {
+      setPaused(false);
+      window.addEventListener(
+        'pointerdown',
+        () => {
+          audio.start();
+        },
+        { once: true },
+      );
+    } else {
+      overlay?.addEventListener('click', () => {
+        audio.start();
+        setPaused(false);
+      });
+      window.addEventListener('keydown', (event) => {
+        if (paused && (event.code === 'Enter' || event.code === 'Space')) {
+          event.preventDefault();
+          audio.start();
+          setPaused(false);
+        }
+      });
     }
 
-    const alpha = !paused
-      ? loop.advance(elapsed, () => step(mode === 'bot' ? bot(state) : human.sample()))
-      : 1;
-    view.frame(previous, state, alpha, paused ? 0 : elapsed, lastInput.brake > 0);
-    requestAnimationFrame(frame);
-  };
+    const frame = (now: number) => {
+      const elapsed = Math.min((now - lastTime) / 1000, 0.25);
+      lastTime = now;
 
-  view.frame(previous, state, 1, 0, false);
-  requestAnimationFrame(frame);
+      const actions = human.consumeActions();
+      if (actions.cycleCamera) view.cycleCamera();
+      if (gameMode === 'play' && !paused) {
+        if (actions.reset) resetToGrid();
+        if (actions.pause) setPaused(true);
+      }
+
+      if (!paused) view.adapt(elapsed);
+      const alpha = !paused
+        ? loop.advance(elapsed, (dt) => step(gameMode === 'bot' ? bot(state) : human.sample(dt)))
+        : 1;
+      audio.update(state, lastInput.throttle, !paused);
+      view.frame(previous, state, alpha, paused ? 0 : elapsed, lastInput.brake > 0);
+      requestAnimationFrame(frame);
+    };
+
+    view.frame(previous, state, 1, 0, false);
+    requestAnimationFrame(frame);
+  }
+}
+
+const overlayElement = document.getElementById('overlay');
+if (mode === 'materials' || mode === 'car') {
+  if (overlayElement) overlayElement.hidden = true;
+  for (const element of document.querySelectorAll<HTMLElement>('.hud')) element.hidden = true;
+  if (mode === 'materials') showMaterials();
+  else showCar();
+} else {
+  runGame(mode);
 }

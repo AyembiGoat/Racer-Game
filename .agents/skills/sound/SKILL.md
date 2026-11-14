@@ -5,12 +5,12 @@ description: How engine, tyre, kerb and impact audio should be synthesised or mi
 
 # Sound
 
-There is no audio in the baseline yet. When sound is added, build it in
-`src/game/audio/` and keep `src/core` completely unaware of Web Audio: core emits
-state (`speed`, slip, throttle) and discrete events (`wall-hit`, `checkpoint`, `lap`),
-and `src/game/audio/` turns those into sound.
+All sound is synthesised in `src/game/audio/`. There are no audio files. `src/core`
+knows nothing about Web Audio: core emits car state (`rpm`, `speed`, `slip`, `surface`)
+and discrete events (`gear-shift`, `wall-hit`, `checkpoint`, `lap`), and
+`src/game/audio/` turns those into sound.
 
-## Structure when added
+## Structure
 
 | File        | Holds                                                           |
 | ----------- | --------------------------------------------------------------- |

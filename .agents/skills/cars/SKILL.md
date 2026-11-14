@@ -32,11 +32,13 @@ attachment are shared presentation logic driven from `CarState`. A new car suppl
    - Brake lights: brighten only while `brake > 0` (not as permanent neon glow).
    - Camera anchors: bonnet/hood and cockpit eye positions derived from the car's body
      dimensions (see `cameras`).
-5. Confirm `src/core/bot.ts` can lap `Test Circuit` cleanly with the car's handling.
+5. Confirm `src/core/bot.ts` can lap `Club Circuit` cleanly with the car's handling.
 
 ## Checking a car
 
-Run `npm run check` and `npm run playtest`, then inspect the screenshots in `playtest/`:
+First run `npm run playtest -- --car` and open `playtest/car.png` to inspect the car
+from four angles against its reference in `reference/`. Then run `npm run playtest` and
+inspect the gameplay screenshots in `playtest/`:
 
 - Wheels touch the road surface (`y = 0`) without sinking through the asphalt or
   floating above it.
