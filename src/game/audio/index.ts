@@ -1,4 +1,5 @@
-import type { GameEvent, GameState } from '../../core/game';
+import type { CarState, DrivingSurface } from '../../core/car';
+import type { GameEvent } from '../../core/game';
 import type { AudioEngine } from './engine';
 import { createEngine } from './engine';
 import {
@@ -16,6 +17,12 @@ import {
 } from './sounds';
 
 export type UiSoundKind = 'focus' | 'select' | 'back' | 'confirm' | 'warning' | 'personal-best';
+
+/** The engine only needs the car and the surface it is on. */
+export interface AudioState {
+  readonly car: CarState;
+  readonly surface: DrivingSurface;
+}
 
 export function createAudio() {
   let engine: AudioEngine | null = null;
@@ -51,7 +58,7 @@ export function createAudio() {
       else uiPersonalBest(engine);
     },
 
-    update(state: GameState, throttle: number, active: boolean) {
+    update(state: AudioState, throttle: number, active: boolean) {
       if (!rig) return;
       if (!active) {
         rig.silence();

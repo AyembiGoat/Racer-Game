@@ -7,6 +7,7 @@ export type IconName =
   | 'camera'
   | 'stopwatch'
   | 'flag'
+  | 'map'
   | 'warning'
   | 'check'
   | 'volume'
@@ -31,6 +32,7 @@ const ICON_PATHS: Record<IconName, string> = {
   stopwatch:
     '<circle cx="12" cy="13" r="7.5" /><line x1="12" y1="13" x2="15.2" y2="9.8" /><line x1="9.5" y1="3" x2="14.5" y2="3" /><line x1="12" y1="3" x2="12" y2="5.5" />',
   flag: '<line x1="6" y1="4" x2="6" y2="20" /><path d="M6 5h12l-2.5 4L18 13H6" />',
+  map: '<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6Z" /><line x1="9" y1="4" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="20" />',
   warning:
     '<path d="M12 4L3.5 19h17L12 4Z" /><line x1="12" y1="10" x2="12" y2="14" /><line x1="12" y1="16.8" x2="12.01" y2="16.8" />',
   check: '<polyline points="5,12.5 9.5,17 19,7" />',

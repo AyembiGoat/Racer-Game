@@ -1,4 +1,6 @@
 import type { GameEvent, GameInput, GameState } from '../core/game';
+import type { OpenWorldState } from '../core/openWorld';
+import type { OpenWorldAudit } from '../core/world/audit';
 import type { GameSettings, KeyBindings, ScreenName } from './ui';
 import type { CameraMode } from './view';
 
@@ -31,6 +33,31 @@ declare global {
       bindings(): KeyBindings;
       /** Peak loudness of each sound relative to a full barrier impact. */
       loudness(): Promise<Record<string, number>>;
+      /** True when the page is in free-roam mode (`?roam`). */
+      roam?: boolean;
+      /** Free-roam simulation state. Only present in `?auto&roam`. */
+      roamState?(): OpenWorldState;
+      /** Hold `input` for `steps` free-roam simulation steps. */
+      stepRoam?(input?: Partial<GameInput>, steps?: number): void;
+      /** Reset free roam to the authored spawn. */
+      roamReset?(): void;
+      /** Move free roam to an authored clear recovery point. */
+      roamRecovery?(id: string): void;
+      /** Full deterministic collision/surface audit of the loaded world. */
+      roamAudit?(): OpenWorldAudit;
+      /** Show or hide the collider wireframe overlay. */
+      setDebug?(visible: boolean): boolean;
+      debugVisible?(): boolean;
+      /** Renderer work for the last rendered frame. */
+      renderInfo(): {
+        calls: number;
+        triangles: number;
+        lines: number;
+        points: number;
+        geometries: number;
+        textures: number;
+        pixelRatio: number;
+      };
     };
   }
 }

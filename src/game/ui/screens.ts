@@ -12,11 +12,12 @@ import {
   type SettingsStore,
 } from './settings';
 
-export type ScreenName = 'loading' | 'title' | 'race' | 'pause' | 'settings' | 'controls';
+export type ScreenName = 'loading' | 'title' | 'race' | 'roam' | 'pause' | 'settings' | 'controls';
 export type UiSoundKind = 'focus' | 'select' | 'back' | 'confirm' | 'warning';
 
 export interface ScreensCallbacks {
   onStartRace(): void;
+  onStartFreeRoam(): void;
   onResumeRace(): void;
   onRestartRun(): void;
   onQuitToTitle(): void;
@@ -208,7 +209,7 @@ export function createScreens(
           <span>Pit Wall Timing</span>
         </div>
         <h1 class="ui-title-h1">BMW M3<br />Club Circuit</h1>
-        <p class="ui-title-meta">Solo time trial · 3 timing sectors · Chase and bonnet views</p>
+        <p class="ui-title-meta">Solo time trial · 3 timing sectors · Chase and bonnet views<br />Or explore the Kestrel Valley open world</p>
         <div class="ui-header-rule"></div>
       </div>
 
@@ -220,14 +221,21 @@ export function createScreens(
           </span>
           <span class="ui-menu-item-tag">Start session</span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 1" data-action="settings">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 1" data-action="roam">
+          <span class="ui-menu-item-left">
+            ${renderIcon('map')}
+            <span>Free Roam</span>
+          </span>
+          <span class="ui-menu-item-tag">Kestrel Valley · Open world</span>
+        </button>
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="settings">
           <span class="ui-menu-item-left">
             ${renderIcon('settings')}
             <span>Settings</span>
           </span>
           <span class="ui-menu-item-tag">Units · FOV · Audio</span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="controls">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 3" data-action="controls">
           <span class="ui-menu-item-left">
             ${renderIcon('controls')}
             <span>Controls</span>
@@ -472,6 +480,7 @@ export function createScreens(
       const action = btn.dataset.action;
       callbacks.onPlaySound('select');
       if (action === 'play') callbacks.onStartRace();
+      else if (action === 'roam') callbacks.onStartFreeRoam();
       else if (action === 'settings') callbacks.onOpenSettings();
       else if (action === 'controls') callbacks.onOpenControls();
     });

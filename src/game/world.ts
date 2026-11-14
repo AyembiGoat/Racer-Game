@@ -367,7 +367,7 @@ function makeChequeredTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function buildSkyAndSun(renderer: THREE.WebGLRenderer) {
+export function buildSkyAndSun(renderer: THREE.WebGLRenderer) {
   const scene = new THREE.Scene();
   const sunDirection = new THREE.Vector3().setFromSphericalCoords(
     1,

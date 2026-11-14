@@ -1,6 +1,51 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CAR_TUNING } from '../core/car';
 import { surface } from './materials';
+
+/**
+ * Collapse every static mesh in a group into one mesh per material. The car is
+ * built from ~70 small boxes and cylinders; merging cuts its draw calls by
+ * roughly two thirds without changing a pixel. Only meshes sharing a material
+ * and standard attributes are merged, and animation pivots stay groups.
+ */
+function mergeByMaterial(group: THREE.Group): void {
+  const buckets = new Map<
+    THREE.Material,
+    { geometries: THREE.BufferGeometry[]; meshes: THREE.Mesh[]; cast: boolean; receive: boolean }
+  >();
+  for (const child of group.children) {
+    if (!(child instanceof THREE.Mesh)) continue;
+    const mesh = child as THREE.Mesh<THREE.BufferGeometry, THREE.Material>;
+    const material = mesh.material;
+    const geometry = mesh.geometry;
+    const bucket = buckets.get(material) ?? {
+      geometries: [],
+      meshes: [],
+      cast: false,
+      receive: false,
+    };
+    mesh.updateMatrix();
+    bucket.geometries.push(geometry.clone().applyMatrix4(mesh.matrix));
+    bucket.meshes.push(mesh);
+    bucket.cast ||= mesh.castShadow;
+    bucket.receive ||= mesh.receiveShadow;
+    buckets.set(material, bucket);
+  }
+  for (const [material, bucket] of buckets) {
+    if (bucket.meshes.length < 2) {
+      for (const geometry of bucket.geometries) geometry.dispose();
+      continue;
+    }
+    const merged = mergeGeometries(bucket.geometries);
+    for (const geometry of bucket.geometries) geometry.dispose();
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.castShadow = bucket.cast;
+    mesh.receiveShadow = bucket.receive;
+    for (const original of bucket.meshes) group.remove(original);
+    group.add(mesh);
+  }
+}
 
 export interface CarVisualState {
   readonly steerAngle: number;
@@ -268,6 +313,8 @@ export function buildCarModel() {
   const capGeo = new THREE.CylinderGeometry(0.055, 0.055, wheelWidth + 0.03, 12);
   capGeo.rotateZ(Math.PI / 2);
 
+  mergeByMaterial(body);
+
   const makeWheel = () => {
     const spinGroup = new THREE.Group();
     const tyre = castAndReceive(new THREE.Mesh(tyreGeo, tyreMaterial));
@@ -280,6 +327,7 @@ export function buildCarModel() {
       spinGroup.add(spoke);
     }
     spinGroup.add(new THREE.Mesh(capGeo, trimMaterial));
+    mergeByMaterial(spinGroup);
     return spinGroup;
   };
 

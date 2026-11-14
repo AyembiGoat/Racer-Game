@@ -2,8 +2,10 @@
 
 A racing and driving game that runs in the browser. TypeScript, Three.js for rendering,
 Vite for dev and build, Vitest for tests. So far there is one car (the 1989 BMW M3),
-one circuit (Club Circuit) with kerbs, grass verges and steel guardrails, synthesised
-sound, lap timing and a bot that laps it. There are no opponent cars yet.
+one club circuit with kerbs, grass verges and steel guardrails, and one large open-world
+valley (Kestrel Valley) with a ring road, farm, village, quarry and airstrip. Both share
+the car, synthesised sound and cameras; the circuit adds lap timing and a bot. There are
+no opponent cars yet. See [`docs/free-roam.md`](docs/free-roam.md) for the open world.
 
 Single-player for now. Replays, ghosts and multiplayer are planned for later, which is
 why the driving and race rules live in `src/core` with no browser code: that part can
@@ -152,6 +154,11 @@ src/
   rendered track are all built from that one description, so what the player sees is
   what the car collides with. Revisit the track format when elevation, banking or
   branching routes are asked for.
+- **An open world is also data.** `src/core/world/types.ts` describes roads, junction
+  pads, barriers, buildings, tree zones, props and recovery points. `buildOpenWorld`
+  samples and indexes that one spec; collision, HUD queries, audits and the rendered
+  scene all read it. Trees are planted deterministically from zones, so never
+  hand-place a rendered tree that has no matching trunk collider.
 - **Core returns events.** A step returns the new state plus what happened (checkpoint
   crossed, lap completed, barrier hit). `src/game` turns events into sound, HUD updates
   and effects.

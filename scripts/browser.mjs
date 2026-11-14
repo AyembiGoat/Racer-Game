@@ -53,6 +53,7 @@ export async function launchGame({ width = 1280, height = 720, mode = 'auto' } =
     executablePath,
     env,
     headless: 'shell',
+    protocolTimeout: 180000,
     args: [
       '--no-sandbox',
       '--use-gl=angle',

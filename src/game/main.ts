@@ -5,11 +5,12 @@ import type { GameEvent, GameInput, GameState } from '../core/game';
 import { createGame, stepGame } from '../core/game';
 import { clubCircuit } from '../core/tracks/clubCircuit';
 import { createAudio, measureSounds } from './audio';
+import { createRoamMode } from './roam';
 import { showCar } from './carModel';
 import { createHumanInput } from './input';
 import { showMaterials } from './materials/preview';
 import { createUi, isReducedMotionActive, type ScreenName, type UiSoundKind } from './ui';
-import { createView } from './view';
+import { createView, createViewRenderer } from './view';
 
 /**
  * Ways to run:
@@ -21,6 +22,8 @@ import { createView } from './view';
  *               `npm run playtest` so an agent can drive the game and take screenshots.
  */
 const query = new URLSearchParams(window.location.search);
+const startInRoam = query.has('roam');
+const startWithColliders = query.has('debug');
 const mode = query.has('materials')
   ? 'materials'
   : query.has('car')
@@ -34,7 +37,9 @@ const mode = query.has('materials')
 function runGame(gameMode: 'auto' | 'bot' | 'play') {
   const track = clubCircuit;
   const audio = createAudio();
-  const view = createView(track);
+  const renderer = createViewRenderer();
+  const view = createView(track, renderer);
+  const roam = createRoamMode(renderer, audio);
   const bot = createBot(track);
 
   let previous = createGame(track);
@@ -62,6 +67,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     view.setFov(s.fov);
     view.setReducedMotion(isReducedMotionActive(s));
     audio.setMasterVolume(s.masterVolume / 100);
+    roam.applySettings(s);
     if (ui.screen() === 'title') {
       view.setCamera(s.defaultCamera);
     }
@@ -81,8 +87,8 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     ui.setScreen(next);
     const isTitle = next === 'title' || next === 'loading';
     view.setTitleShowcase(isTitle);
-    human?.setCaptureEnabled(next === 'race');
-    if (next !== 'race') {
+    human?.setCaptureEnabled(next === 'race' || next === 'roam');
+    if (next !== 'race' && next !== 'roam') {
       human?.clear();
       audio.update(state, 0, false);
     }
@@ -99,6 +105,11 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       resetToGrid(false);
       view.setCamera(ui.store.getSettings().defaultCamera);
       enterScreen('race');
+    },
+    onStartFreeRoam() {
+      unlockAudioFromGesture();
+      openFreeRoam();
+      playUiSound('select');
     },
     onResumeRace() {
       unlockAudioFromGesture();
@@ -125,6 +136,19 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     getGameState: () => state,
     getCurrentCamera: () => view.camera(),
   });
+
+  function openFreeRoam() {
+    roam.build();
+    roam.applySettings(ui.store.getSettings());
+    roam.enter();
+    enterScreen('roam');
+    if (startWithColliders) roam.setDebug(true);
+  }
+
+  function closeFreeRoam() {
+    roam.exit();
+    enterScreen('title');
+  }
 
   prevDefaultCamera = ui.store.getSettings().defaultCamera;
   view.setCamera(prevDefaultCamera);
@@ -157,6 +181,68 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   }
 
   if (gameMode === 'auto') {
+    if (startInRoam) {
+      roam.build();
+      roam.applySettings(ui.store.getSettings());
+      roam.enter();
+      if (startWithColliders) roam.setDebug(true);
+      enterScreen('roam');
+      roam.advance(0, NO_INPUT);
+      window.__racer = {
+        state: () => state,
+        step: () => [],
+        bot: () => [],
+        camera: () => roam.camera(),
+        setCamera: (cameraMode) => {
+          roam.setCamera(cameraMode);
+          roam.step(NO_INPUT, 0);
+        },
+        fov: () => view.fov(),
+        reset: () => {
+          roam.reset();
+          roam.step(NO_INPUT, 0);
+        },
+        screen: () => ui.screen(),
+        setScreen: (screen) => {
+          if (screen === 'roam') {
+            openFreeRoam();
+          } else {
+            if (roam.active()) closeFreeRoam();
+            enterScreen(screen);
+          }
+          roam.step(NO_INPUT, 0);
+        },
+        settings: () => ui.store.getSettings(),
+        setSettings: (patch) => ui.store.setSettings(patch),
+        bindings: () => ui.store.getBindings(),
+        loudness: measureSounds,
+        renderInfo: () => roam.renderInfo() ?? view.renderInfo(),
+        roam: true,
+        roamState: () => roam.state(),
+        stepRoam: (input = {}, steps = 1) => {
+          roam.step({ ...NO_INPUT, ...input }, steps);
+        },
+        roamReset: () => {
+          roam.reset();
+          roam.step(NO_INPUT, 0);
+        },
+        roamRecovery: (id) => {
+          roam.teleportToRecovery(id);
+          roam.step(NO_INPUT, 0);
+        },
+        roamAudit: () => roam.audit(),
+        setDebug: (visible) => roam.setDebug(visible),
+        debugVisible: () => roam.debugVisible(),
+      };
+      // Keep rendering on demand-driven frames so screenshots and the
+      // performance sampler see real renderer work without advancing physics.
+      const renderRoam = () => {
+        roam.advance(0, NO_INPUT);
+        requestAnimationFrame(renderRoam);
+      };
+      requestAnimationFrame(renderRoam);
+      return;
+    }
     enterScreen('race');
     view.compileShaders();
     ui.hud.update(state, NO_INPUT, [], 0);
@@ -199,6 +285,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
       setSettings: (patch) => ui.store.setSettings(patch),
       bindings: () => ui.store.getBindings(),
       loudness: measureSounds,
+      renderInfo: () => view.renderInfo(),
     };
 
     view.frame(previous, state, 1, 0, false);
@@ -211,9 +298,24 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
   const loop = createFixedLoop();
   let lastTime = performance.now();
 
-  if (gameMode === 'bot') {
+  window.addEventListener('keydown', (event) => {
+    if (event.code === 'F3' && roam.active()) {
+      event.preventDefault();
+      roam.setDebug(!roam.debugVisible());
+      playUiSound('select');
+    }
+  });
+
+  if (startInRoam) {
+    openFreeRoam();
+  } else if (gameMode === 'bot') {
     enterScreen('race');
     view.compileShaders();
+    // Read-only measurement hook for scripts/perf.mjs. Nothing can be driven from here.
+    window.__racer = {
+      state: () => state,
+      renderInfo: () => view.renderInfo(),
+    } as unknown as NonNullable<typeof window.__racer>;
     window.addEventListener(
       'pointerdown',
       () => {
@@ -268,6 +370,27 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     lastTime = now;
 
     const currentScreen = ui.screen();
+    if (currentScreen === 'roam') {
+      const actions = humanInput.consumeActions();
+      if (actions.cycleCamera) {
+        roam.cycleCamera();
+        playUiSound('select');
+      }
+      if (gameMode === 'play') {
+        if (actions.reset) {
+          roam.reset();
+          playUiSound('confirm');
+        }
+        if (actions.pause) {
+          playUiSound('back');
+          closeFreeRoam();
+        }
+      }
+      roam.adapt(elapsed);
+      roam.advance(elapsed, humanInput.sample(elapsed));
+      requestAnimationFrame(frame);
+      return;
+    }
     if (currentScreen === 'race') {
       const actions = humanInput.consumeActions();
       if (actions.cycleCamera) {

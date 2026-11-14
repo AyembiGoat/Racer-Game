@@ -1,6 +1,6 @@
 import * as THREE from 'three';
+import type { CarState, DrivingSurface } from '../core/car';
 import { CAR_TUNING } from '../core/car';
-import type { GameState } from '../core/game';
 import type { Track } from '../core/track';
 import { clamp, headingForward, headingRight, lerp, lerpAngle } from '../core/vec';
 import { buildCarModel } from './carModel';
@@ -8,24 +8,47 @@ import { buildWorld } from './world';
 
 export type CameraMode = 'chase' | 'bonnet';
 
-const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio, 1.75);
-const MIN_PIXEL_RATIO = 0.7;
-const SKID_POOL_SIZE = 220;
+/** Minimal state a driving camera needs; both the circuit and free roam supply it. */
+export interface DrivingViewState {
+  readonly car: CarState;
+  readonly surface: DrivingSurface;
+}
 
-export function createView(track: Track) {
+/** Everything a view needs from a built world. */
+export interface WorldRig {
+  readonly scene: THREE.Scene;
+  moveShadowFocus(x: number, z: number): void;
+}
+
+export function createViewRenderer(): THREE.WebGLRenderer {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     powerPreference: 'high-performance',
   });
-  let pixelRatio = MAX_PIXEL_RATIO;
-  renderer.setPixelRatio(pixelRatio);
+  renderer.setPixelRatio(MAX_PIXEL_RATIO);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.52;
   document.body.prepend(renderer.domElement);
+  return renderer;
+}
 
-  const world = buildWorld(track, renderer);
+const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio, 1.75);
+const MIN_PIXEL_RATIO = 0.7;
+const SKID_POOL_SIZE = 220;
+
+export function createView(track: Track, renderer: THREE.WebGLRenderer = createViewRenderer()) {
+  return createDrivingView(renderer, buildWorld(track, renderer), track.spawn.heading, 900);
+}
+
+export function createDrivingView(
+  renderer: THREE.WebGLRenderer,
+  world: WorldRig,
+  spawnHeading: number,
+  farPlane: number,
+) {
+  let pixelRatio = renderer.getPixelRatio();
   const carModel = buildCarModel();
   world.scene.add(carModel.root);
 
@@ -47,11 +70,16 @@ export function createView(track: Track) {
   skids.instanceMatrix.needsUpdate = true;
   world.scene.add(skids);
 
-  const camera = new THREE.PerspectiveCamera(64, window.innerWidth / window.innerHeight, 0.15, 900);
+  const camera = new THREE.PerspectiveCamera(
+    64,
+    window.innerWidth / window.innerHeight,
+    0.15,
+    farPlane,
+  );
   camera.rotation.order = 'YXZ';
 
   let cameraMode: CameraMode = 'chase';
-  let chaseYaw = track.spawn.heading;
+  let chaseYaw = spawnHeading;
   let chaseDistance = 6.2;
   let skidCursor = 0;
   let skidCooldown = 0;
@@ -84,6 +112,20 @@ export function createView(track: Track) {
 
   return {
     canvas: renderer.domElement,
+
+    /** Renderer work for the last frame, for honest performance reporting. */
+    renderInfo() {
+      const info = renderer.info.render;
+      return {
+        calls: info.calls,
+        triangles: info.triangles,
+        lines: info.lines,
+        points: info.points,
+        geometries: renderer.info.memory.geometries,
+        textures: renderer.info.memory.textures,
+        pixelRatio,
+      };
+    },
 
     compileShaders() {
       renderer.compile(world.scene, camera);
@@ -155,8 +197,8 @@ export function createView(track: Track) {
     },
 
     frame(
-      previous: GameState,
-      current: GameState,
+      previous: DrivingViewState,
+      current: DrivingViewState,
       alpha: number,
       dtSeconds: number,
       braking: boolean,
