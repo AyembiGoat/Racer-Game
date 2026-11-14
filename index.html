@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Racer Game</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1d21;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+      }
+      .hud {
+        position: fixed;
+        pointer-events: none;
+        font-variant-numeric: tabular-nums;
+        text-shadow:
+          0 0 3px rgb(0 0 0 / 90%),
+          0 1px 4px rgb(0 0 0 / 80%);
+      }
+      #timing {
+        left: 24px;
+        top: 20px;
+        font-size: 15px;
+        line-height: 1.45;
+      }
+      #lap-current {
+        font-size: 22px;
+        font-weight: 600;
+      }
+      #speedometer {
+        right: 28px;
+        bottom: 22px;
+        text-align: right;
+      }
+      #speed-value {
+        font-size: 38px;
+        font-weight: 600;
+        line-height: 1.05;
+      }
+      #speed-meta {
+        font-size: 14px;
+        opacity: 0.9;
+      }
+      #overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgb(14 18 22 / 58%);
+        cursor: pointer;
+      }
+      #overlay h1 {
+        margin: 0 0 6px;
+        font-size: 32px;
+        font-weight: 600;
+      }
+      #overlay .car-label {
+        margin: 0 0 20px;
+        font-size: 15px;
+        opacity: 0.8;
+      }
+      #overlay dl {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 6px 20px;
+        margin: 0 0 24px;
+        font-size: 15px;
+      }
+      #overlay dt {
+        text-align: right;
+        opacity: 0.75;
+      }
+      #overlay dd {
+        margin: 0;
+      }
+      #overlay .prompt {
+        margin: 0;
+        font-size: 16px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="timing" class="hud">
+      <div id="lap-count"></div>
+      <div id="lap-current"></div>
+      <div id="lap-last"></div>
+      <div id="lap-best"></div>
+    </div>
+    <div id="speedometer" class="hud">
+      <div id="speed-value"></div>
+      <div id="speed-meta"></div>
+    </div>
+    <div id="overlay">
+      <div>
+        <h1 id="track-name">Club Circuit</h1>
+        <p id="car-name" class="car-label">BMW M3</p>
+        <dl>
+          <dt>Accelerate</dt>
+          <dd>W or Up</dd>
+          <dt>Brake / reverse</dt>
+          <dd>S or Down</dd>
+          <dt>Steer</dt>
+          <dd>A D or Left Right</dd>
+          <dt>Handbrake</dt>
+          <dd>Space</dd>
+          <dt>Camera</dt>
+          <dd>C</dd>
+          <dt>Reset</dt>
+          <dd>R</dd>
+          <dt>Pause</dt>
+          <dd>Esc</dd>
+        </dl>
+        <p class="prompt">Click or press Enter to drive</p>
+      </div>
+    </div>
+    <script type="module" src="/src/game/main.ts"></script>
+  </body>
+</html>
