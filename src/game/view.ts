@@ -50,9 +50,6 @@ export function createView(track: Track) {
   const camera = new THREE.PerspectiveCamera(64, window.innerWidth / window.innerHeight, 0.15, 900);
   camera.rotation.order = 'YXZ';
 
-  // Compile all shaders once at start-up so nothing hitches mid-corner.
-  renderer.compile(world.scene, camera);
-
   let cameraMode: CameraMode = 'chase';
   let chaseYaw = track.spawn.heading;
   let chaseDistance = 6.2;
@@ -60,6 +57,10 @@ export function createView(track: Track) {
   let skidCooldown = 0;
   let slowSeconds = 0;
   let smoothSeconds = 0;
+  let titleShowcase = false;
+  let showcaseAngle = 0.55;
+  let reducedMotion = false;
+  let hasRendered = false;
 
   const lookTarget = new THREE.Vector3();
   const skidDummy = new THREE.Object3D();
@@ -76,10 +77,17 @@ export function createView(track: Track) {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (hasRendered) {
+      renderer.render(world.scene, camera);
+    }
   });
 
   return {
     canvas: renderer.domElement,
+
+    compileShaders() {
+      renderer.compile(world.scene, camera);
+    },
 
     camera(): CameraMode {
       return cameraMode;
@@ -91,6 +99,29 @@ export function createView(track: Track) {
 
     cycleCamera() {
       cameraMode = cameraMode === 'chase' ? 'bonnet' : 'chase';
+    },
+
+    fov(): number {
+      return camera.fov;
+    },
+
+    setFov(degrees: number) {
+      const clamped = clamp(degrees, 48, 88);
+      if (Math.abs(camera.fov - clamped) > 1e-3) {
+        camera.fov = clamped;
+        camera.updateProjectionMatrix();
+      }
+    },
+
+    setTitleShowcase(active: boolean) {
+      titleShowcase = active;
+      if (active) {
+        showcaseAngle = 0.52;
+      }
+    },
+
+    setReducedMotion(reduced: boolean) {
+      reducedMotion = reduced;
     },
 
     resetCamera(heading: number) {
@@ -176,36 +207,63 @@ export function createView(track: Track) {
         skids.instanceMatrix.needsUpdate = true;
       }
 
-      const yawFollow = dtSeconds > 0 ? 1 - Math.exp(-6.2 * dtSeconds) : 1;
-      chaseYaw = lerpAngle(chaseYaw, carHeading, yawFollow);
-
-      const speedRatio = clamp(Math.abs(current.car.speed) / CAR_TUNING.maxSpeed, 0, 1);
-      const desiredDistance = 6.15 + speedRatio * 0.7;
-      chaseDistance =
-        dtSeconds > 0
-          ? lerp(chaseDistance, desiredDistance, 1 - Math.exp(-5 * dtSeconds))
-          : desiredDistance;
-
-      if (cameraMode === 'chase') {
-        const camForward = headingForward(chaseYaw);
+      if (titleShowcase) {
+        if (!reducedMotion && dtSeconds > 0) {
+          showcaseAngle += dtSeconds * 0.08;
+        }
+        // Slow pit-lane three-quarter hero orbit framing the BMW M3 on the right-centre,
+        // keeping the left viewport open for the title menu.
+        const radius = 5.6;
+        const orbitAngle = carHeading + showcaseAngle;
+        const camOffsetX = Math.sin(orbitAngle) * radius;
+        const camOffsetZ = Math.cos(orbitAngle) * radius;
         camera.position.set(
-          carX - camForward.x * chaseDistance,
-          2.12,
-          carZ - camForward.z * chaseDistance,
+          carX + camOffsetX,
+          1.46 + Math.sin(showcaseAngle * 0.7) * 0.12,
+          carZ + camOffsetZ,
         );
+        const camRightX = Math.cos(orbitAngle);
+        const camRightZ = -Math.sin(orbitAngle);
         const nose = headingForward(carHeading);
-        lookTarget.set(carX + nose.x * 6.5, 0.82, carZ + nose.z * 6.5);
+        lookTarget.set(
+          carX + nose.x * 0.65 - camRightX * 1.15,
+          0.74,
+          carZ + nose.z * 0.65 - camRightZ * 1.15,
+        );
         camera.lookAt(lookTarget);
       } else {
-        const nose = headingForward(carHeading);
-        camera.position.set(carX + nose.x * 0.48, 1.2, carZ + nose.z * 0.48);
-        lookTarget.set(carX + nose.x * 28, 0.84, carZ + nose.z * 28);
-        camera.lookAt(lookTarget);
+        const yawFollow = dtSeconds > 0 ? 1 - Math.exp(-6.2 * dtSeconds) : 1;
+        chaseYaw = lerpAngle(chaseYaw, carHeading, yawFollow);
+
+        const speedRatio = clamp(Math.abs(current.car.speed) / CAR_TUNING.maxSpeed, 0, 1);
+        const desiredDistance = 6.15 + speedRatio * 0.7;
+        chaseDistance =
+          dtSeconds > 0
+            ? lerp(chaseDistance, desiredDistance, 1 - Math.exp(-5 * dtSeconds))
+            : desiredDistance;
+
+        if (cameraMode === 'chase') {
+          const camForward = headingForward(chaseYaw);
+          camera.position.set(
+            carX - camForward.x * chaseDistance,
+            2.12,
+            carZ - camForward.z * chaseDistance,
+          );
+          const nose = headingForward(carHeading);
+          lookTarget.set(carX + nose.x * 6.5, 0.82, carZ + nose.z * 6.5);
+          camera.lookAt(lookTarget);
+        } else {
+          const nose = headingForward(carHeading);
+          camera.position.set(carX + nose.x * 0.48, 1.2, carZ + nose.z * 0.48);
+          lookTarget.set(carX + nose.x * 28, 0.84, carZ + nose.z * 28);
+          camera.lookAt(lookTarget);
+        }
       }
 
       if (draw) {
         world.moveShadowFocus(carX, carZ);
         renderer.render(world.scene, camera);
+        hasRendered = true;
       }
     },
   };

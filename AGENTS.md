@@ -81,10 +81,11 @@ can be read two very different ways.
 Full list and reasoning: [`no-slop`](.agents/skills/no-slop/SKILL.md). The short
 version:
 
-- **Visuals.** No glow lines, neon underglow or outlines, or bloom as decoration. No
-  purple-to-blue gradients, gradient text, glass panels, pulsing or shimmering loops,
-  or sci-fi telemetry ornaments that carry no information. No emoji as icons. An effect
-  has to tell the driver something.
+- **Visuals.** No neon underglow, purple-to-blue gradients, cyan/magenta sci-fi
+  ornaments, gradient-filled text, pulsing/shimmering idle loops, or emoji icons.
+  Restrained layered matte panels, subtle top-lit gradients, and opacity-animated
+  focus/shift/impact glows are part of the UI direction below when tied to real state.
+  An effect has to tell the driver something.
 - **Game.** No button, stat, gauge, menu entry or setting that is not wired to
   something real. No invented names (see [Names](#names)) or lore filler. No effect
   stack (radial blur, shake, flare, vignette, chromatic aberration) added to fake a
@@ -113,8 +114,12 @@ owner can change it at any time; nobody else should.
   grass verges, galvanized steel guardrails and deciduous trees. Colour comes from
   materials, the sky and the sun, not from coloured lights or post-processing.
 - Cars are real production or motorsport cars modelled to their real dimensions.
-- The HUD is plain white text in the system font with a soft shadow for legibility. No
-  panels, frames or decorative gauges.
+- The interface follows a precise, physical, quiet works pit-wall timing system: matte
+  anthracite layered panels (`src/game/ui/`), crisp hairline borders, one warm signal
+  orange accent, locally bundled Barlow Condensed and IBM Plex Sans typography with
+  tabular numerals, custom SVG icons, and GPU-composited transitions that respect
+  reduced-motion preferences. Live HUD clusters omit blur filters to hold 60 Hz frame
+  budgets; static modal backdrops may blur softly.
 - Effects and sound follow what the car is actually doing: brake lights when braking,
   rubber marks when sliding, engine tone opening with throttle load, kerb rumble on
   kerbs, grass brush on verges.

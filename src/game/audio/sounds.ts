@@ -241,3 +241,79 @@ export function lapChime(engine: AudioEngine, at = engine.now()): void {
     decay: 0.16,
   });
 }
+
+export function uiPersonalBest(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'sine',
+    from: 587.33,
+    level: 0.22,
+    decay: 0.1,
+  });
+  engine.toneBurst('ui', at + 0.07, {
+    type: 'sine',
+    from: 739.99,
+    level: 0.22,
+    decay: 0.12,
+  });
+  engine.toneBurst('ui', at + 0.14, {
+    type: 'sine',
+    from: 880,
+    level: 0.26,
+    decay: 0.2,
+  });
+}
+
+export function uiFocus(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'triangle',
+    from: 420,
+    to: 360,
+    level: 0.08,
+    decay: 0.032,
+  });
+}
+
+export function uiSelect(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'triangle',
+    from: 520,
+    to: 680,
+    level: 0.14,
+    decay: 0.055,
+  });
+}
+
+export function uiBack(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'triangle',
+    from: 460,
+    to: 310,
+    level: 0.12,
+    decay: 0.06,
+  });
+}
+
+export function uiConfirm(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'sine',
+    from: 523.25,
+    level: 0.14,
+    decay: 0.06,
+  });
+  engine.toneBurst('ui', at + 0.055, {
+    type: 'sine',
+    from: 659.25,
+    level: 0.16,
+    decay: 0.1,
+  });
+}
+
+export function uiWarning(engine: AudioEngine, at = engine.now()): void {
+  engine.toneBurst('ui', at, {
+    type: 'triangle',
+    from: 330,
+    to: 277.18,
+    level: 0.15,
+    decay: 0.09,
+  });
+}

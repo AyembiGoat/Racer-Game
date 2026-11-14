@@ -1,11 +1,26 @@
 import type { GameEvent, GameState } from '../../core/game';
 import type { AudioEngine } from './engine';
 import { createEngine } from './engine';
-import { checkpointTick, createContinuousRig, gearShiftClack, lapChime, wallHit } from './sounds';
+import {
+  checkpointTick,
+  createContinuousRig,
+  gearShiftClack,
+  lapChime,
+  uiBack,
+  uiConfirm,
+  uiFocus,
+  uiPersonalBest,
+  uiSelect,
+  uiWarning,
+  wallHit,
+} from './sounds';
+
+export type UiSoundKind = 'focus' | 'select' | 'back' | 'confirm' | 'warning' | 'personal-best';
 
 export function createAudio() {
   let engine: AudioEngine | null = null;
   let rig: ReturnType<typeof createContinuousRig> | null = null;
+  let pendingMasterLevel = 0.68;
 
   return {
     /** Start or resume audio after a user click or key press. */
@@ -17,7 +32,23 @@ export function createAudio() {
         return;
       }
       engine = createEngine(new AudioContext());
+      engine.setMasterLevel(pendingMasterLevel);
       rig = createContinuousRig(engine);
+    },
+
+    setMasterVolume(level: number) {
+      pendingMasterLevel = Math.max(0, Math.min(1, level));
+      engine?.setMasterLevel(pendingMasterLevel);
+    },
+
+    playUi(kind: UiSoundKind) {
+      if (!engine) return;
+      if (kind === 'focus') uiFocus(engine);
+      else if (kind === 'select') uiSelect(engine);
+      else if (kind === 'back') uiBack(engine);
+      else if (kind === 'confirm') uiConfirm(engine);
+      else if (kind === 'warning') uiWarning(engine);
+      else uiPersonalBest(engine);
     },
 
     update(state: GameState, throttle: number, active: boolean) {
@@ -44,6 +75,8 @@ export function createAudio() {
           wallHit(engine, event.impactSpeed);
         } else if (event.type === 'checkpoint') {
           checkpointTick(engine);
+        } else if (event.isNewBest && event.lap > 1) {
+          uiPersonalBest(engine);
         } else {
           lapChime(engine);
         }
@@ -82,6 +115,24 @@ const MEASURED: Record<string, (engine: AudioEngine) => void> = {
   },
   lap: (engine) => {
     lapChime(engine, 0.02);
+  },
+  uiPersonalBest: (engine) => {
+    uiPersonalBest(engine, 0.02);
+  },
+  uiFocus: (engine) => {
+    uiFocus(engine, 0.02);
+  },
+  uiSelect: (engine) => {
+    uiSelect(engine, 0.02);
+  },
+  uiBack: (engine) => {
+    uiBack(engine, 0.02);
+  },
+  uiConfirm: (engine) => {
+    uiConfirm(engine, 0.02);
+  },
+  uiWarning: (engine) => {
+    uiWarning(engine, 0.02);
   },
 };
 

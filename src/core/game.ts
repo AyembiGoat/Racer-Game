@@ -2,37 +2,84 @@ import type { CarInput, CarState, DrivingSurface } from './car';
 import { CAR_TUNING, createCar, stepCar } from './car';
 import type { Track } from './track';
 import { projectOntoTrack, surfaceAtProjection } from './track';
-import { add2, dot2, forwardGateCrossing, headingForward, scale2, sub2 } from './vec';
+import { add2, distance2, dot2, forwardGateCrossing, headingForward, scale2, sub2 } from './vec';
 
 export type GameInput = CarInput;
 
+export type ShiftDirection = 'up' | 'down' | 'reverse';
+
 export type GameEvent =
-  | { readonly type: 'checkpoint'; readonly index: number }
-  | { readonly type: 'lap'; readonly lap: number; readonly timeSeconds: number }
+  | {
+      readonly type: 'checkpoint';
+      readonly index: number;
+      readonly splitSeconds: number;
+      readonly sectorSeconds: number;
+      readonly deltaSeconds: number | null;
+    }
+  | {
+      readonly type: 'lap';
+      readonly lap: number;
+      readonly timeSeconds: number;
+      readonly deltaSeconds: number | null;
+      readonly isNewBest: boolean;
+      readonly sectors: readonly (number | null)[];
+    }
   | { readonly type: 'wall-hit'; readonly impactSpeed: number }
-  | { readonly type: 'gear-shift'; readonly gear: number };
+  | { readonly type: 'gear-shift'; readonly gear: number; readonly direction: ShiftDirection };
+
+export interface LapRecord {
+  readonly lap: number;
+  readonly timeSeconds: number;
+  readonly deltaSeconds: number | null;
+  readonly isNewBest: boolean;
+  readonly sectors: readonly (number | null)[];
+}
 
 export interface GameState {
   readonly car: CarState;
   readonly surface: DrivingSurface;
   readonly elapsedSeconds: number;
+  readonly distanceMetres: number;
   readonly currentLapSeconds: number;
+  readonly currentSectorStartSeconds: number;
   readonly completedLaps: number;
   readonly nextCheckpoint: number;
+  readonly currentSplits: readonly (number | null)[];
+  readonly currentSectors: readonly (number | null)[];
+  readonly bestLapSplits: readonly (number | null)[];
+  readonly bestSectors: readonly (number | null)[];
+  readonly lastCheckpointDeltaSeconds: number | null;
+  readonly lastLapDeltaSeconds: number | null;
   readonly lastLapSeconds: number | null;
   readonly bestLapSeconds: number | null;
+  readonly lapHistory: readonly LapRecord[];
+}
+
+function emptySectorArray(track: Track): (number | null)[] {
+  const sectorCount = Math.max(0, track.checkpoints.length - 1);
+  return Array.from({ length: sectorCount }, () => null);
 }
 
 export function createGame(track: Track): GameState {
+  const empty = emptySectorArray(track);
   return {
     car: createCar(track.spawn),
     surface: 'tarmac',
     elapsedSeconds: 0,
+    distanceMetres: 0,
     currentLapSeconds: 0,
+    currentSectorStartSeconds: 0,
     completedLaps: 0,
     nextCheckpoint: 0,
+    currentSplits: empty,
+    currentSectors: empty,
+    bestLapSplits: empty,
+    bestSectors: empty,
+    lastCheckpointDeltaSeconds: null,
+    lastLapDeltaSeconds: null,
     lastLapSeconds: null,
     bestLapSeconds: null,
+    lapHistory: [],
   };
 }
 
@@ -91,14 +138,26 @@ export function stepGame(
   const { car, surface } = confineToBarriers(steppedCar, track, events);
 
   if (car.gear !== prevGear) {
-    events.push({ type: 'gear-shift', gear: car.gear });
+    const direction: ShiftDirection =
+      car.gear < 0 ? 'reverse' : car.gear > prevGear ? 'up' : 'down';
+    events.push({ type: 'gear-shift', gear: car.gear, direction });
   }
 
+  const distanceMetres = state.distanceMetres + distance2(prevPosition, car.position);
+
   let currentLapSeconds = state.currentLapSeconds + dt;
+  let currentSectorStartSeconds = state.currentSectorStartSeconds;
   let completedLaps = state.completedLaps;
   let nextCheckpoint = state.nextCheckpoint;
+  let currentSplits = state.currentSplits;
+  let currentSectors = state.currentSectors;
+  let bestLapSplits = state.bestLapSplits;
+  let bestSectors = state.bestSectors;
+  let lastCheckpointDeltaSeconds = state.lastCheckpointDeltaSeconds;
+  let lastLapDeltaSeconds = state.lastLapDeltaSeconds;
   let lastLapSeconds = state.lastLapSeconds;
   let bestLapSeconds = state.bestLapSeconds;
+  let lapHistory = state.lapHistory;
 
   const checkpoint = track.checkpoints[nextCheckpoint];
   if (checkpoint) {
@@ -110,17 +169,77 @@ export function stepGame(
     );
     if (hitFraction !== null) {
       const isFinishLine = nextCheckpoint === track.checkpoints.length - 1;
+      const crossingTime = state.currentLapSeconds + dt * hitFraction;
       if (!isFinishLine) {
-        events.push({ type: 'checkpoint', index: nextCheckpoint });
+        const sectorIndex = nextCheckpoint;
+        const sectorSeconds = Math.max(0, crossingTime - currentSectorStartSeconds);
+        const refSplit = bestLapSplits[sectorIndex] ?? null;
+        const deltaSeconds = refSplit !== null ? crossingTime - refSplit : null;
+
+        const nextSplits = [...currentSplits];
+        nextSplits[sectorIndex] = crossingTime;
+        currentSplits = nextSplits;
+
+        const nextSectors = [...currentSectors];
+        nextSectors[sectorIndex] = sectorSeconds;
+        currentSectors = nextSectors;
+
+        const nextBestSectors = [...bestSectors];
+        const prevBestSector = nextBestSectors[sectorIndex] ?? null;
+        if (prevBestSector === null || sectorSeconds < prevBestSector) {
+          nextBestSectors[sectorIndex] = sectorSeconds;
+          bestSectors = nextBestSectors;
+        }
+
+        currentSectorStartSeconds = crossingTime;
+        lastCheckpointDeltaSeconds = deltaSeconds;
+
+        events.push({
+          type: 'checkpoint',
+          index: sectorIndex,
+          splitSeconds: crossingTime,
+          sectorSeconds,
+          deltaSeconds,
+        });
         nextCheckpoint += 1;
       } else {
-        const lapTime = state.currentLapSeconds + dt * hitFraction;
+        const lapTime = crossingTime;
+        const deltaSeconds = bestLapSeconds !== null ? lapTime - bestLapSeconds : null;
+        const isNewBest = bestLapSeconds === null || lapTime < bestLapSeconds;
+
         completedLaps += 1;
         lastLapSeconds = lapTime;
-        bestLapSeconds = bestLapSeconds === null ? lapTime : Math.min(bestLapSeconds, lapTime);
+        lastLapDeltaSeconds = deltaSeconds;
+        lastCheckpointDeltaSeconds = null;
+
+        if (isNewBest) {
+          bestLapSeconds = lapTime;
+          bestLapSplits = currentSplits;
+        }
+
+        const record: LapRecord = {
+          lap: completedLaps,
+          timeSeconds: lapTime,
+          deltaSeconds,
+          isNewBest,
+          sectors: currentSectors,
+        };
+        lapHistory = [...lapHistory, record];
+
         currentLapSeconds = dt * (1 - hitFraction);
+        currentSectorStartSeconds = 0;
+        currentSplits = emptySectorArray(track);
+        currentSectors = emptySectorArray(track);
         nextCheckpoint = 0;
-        events.push({ type: 'lap', lap: completedLaps, timeSeconds: lapTime });
+
+        events.push({
+          type: 'lap',
+          lap: completedLaps,
+          timeSeconds: lapTime,
+          deltaSeconds,
+          isNewBest,
+          sectors: record.sectors,
+        });
       }
     }
   }
@@ -130,11 +249,20 @@ export function stepGame(
       car,
       surface,
       elapsedSeconds: state.elapsedSeconds + dt,
+      distanceMetres,
       currentLapSeconds,
+      currentSectorStartSeconds,
       completedLaps,
       nextCheckpoint,
+      currentSplits,
+      currentSectors,
+      bestLapSplits,
+      bestSectors,
+      lastCheckpointDeltaSeconds,
+      lastLapDeltaSeconds,
       lastLapSeconds,
       bestLapSeconds,
+      lapHistory,
     },
     events,
   };

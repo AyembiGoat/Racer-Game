@@ -5,8 +5,10 @@ A racing and driving game that runs in the browser, built with TypeScript and Th
 **Status: first playable slice.** One car (the 1989 BMW M3) with automatic 5-speed
 gearing and weight transfer, one sunlit track (Club Circuit) with left-and-right
 S-bends, red-and-white kerbs, grass run-off verges, braking boards and steel
-guardrails, synthesised engine/tyre/kerb/impact sound, chase and bonnet cameras, and a
-bot that laps the circuit using player inputs.
+guardrails, synthesised engine/tyre/kerb/impact sound, chase and bonnet cameras, a
+works pit-wall timing HUD and menu system (live title showcase, sector splits, minimap,
+pause summary, persisted settings and rebindable controls), and a bot that laps the
+circuit using player inputs.
 
 ## Quick start
 
@@ -64,11 +66,12 @@ Add `?bot` to the URL to watch the bot drive laps.
 src/
   core/            Driving and race rules: car handling, gears, surfaces, checkpoints, bot
   core/tracks/     Circuits as plain data
-  game/            Browser shell: Three.js world, BMW M3 model, cameras, input, HUD
+  game/            Browser shell: Three.js world, BMW M3 model, cameras, input
+  game/ui/         Pit-wall timing HUD, menus, settings, rebindable controls and bundled fonts
   game/materials/  Shared procedural PBR surface library
-  game/audio/      Synthesised engine, tyre, kerb, wind and impact audio
+  game/audio/      Synthesised engine, tyre, kerb, wind, UI and impact audio
 scripts/           Headless-browser playtest
-reference/         Reference images the car and circuit were built from
+reference/         Reference images and UI design notes (`ui-notes.md`)
 .agents/           Playbooks (skills) for AI agents, indexed in skills.md
 AGENTS.md          Rules and architecture for anyone changing the code
 ```
