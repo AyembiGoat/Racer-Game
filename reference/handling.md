@@ -91,3 +91,23 @@ garage labels these figures "In this game" and lists manufacturer data separatel
 
 No person has driven this build. Every figure above comes from the simulation and the
 bot; how it feels on a keyboard is untested.
+
+## Keyboard pass (later change)
+
+Driving on keys was reported as hard to steer. Changes, all aimed at on/off keys:
+
+- A held steering key now builds to full lock over 0.24 s and returns over 0.12 s
+  (`src/game/steerRamp.ts`); before, it reached full lock in 0.075 s and snapped to centre
+  on release. A 0.1 s tap at 25 m/s now turns the M3 1.4 degrees instead of 3.4, and peak
+  yaw acceleration is 1.8 rad/s² instead of 5.3.
+- The throttle key eases on over 0.16 s and off over 0.08 s.
+- Full lock asks for 1.2 times the grip-limit angle instead of 1.35.
+- Power no longer loosens the rear much: `powerGripLoss` 0.2 to 0.05, `powerRotation`
+  0.12 to 0.05. The strong cars no longer step out under full throttle; that character
+  was traded for control.
+- `longitudinalScale` 2.5 to 2.0: acceleration, drag and engine braking are a fifth
+  lower. Top speeds are unchanged.
+
+Bot standing / flying laps after the change: M3 27.77 / 25.57 s, MX-5 29.61 / 27.07 s,
+Mustang 25.52 / 23.47 s, Cayman 25.61 / 23.63 s, no barrier contact. Pars were re-derived.
+The tables above predate this pass. As before, no person has driven it.

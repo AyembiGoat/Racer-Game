@@ -110,7 +110,7 @@ export interface CarSpec {
 
 export const SIM_BALANCE = {
   /** Every drive, drag and engine-braking force is multiplied by this. */
-  longitudinalScale: 2.5,
+  longitudinalScale: 2.0,
   lateralScale: 2.5,
   brakeScale: 2.85,
   drivelineEfficiency: 0.88,

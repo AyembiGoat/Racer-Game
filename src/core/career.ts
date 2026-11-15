@@ -18,10 +18,10 @@ export const REWARDS = {
 
 /** Par lap per car on Club Circuit; a unit test holds these to the bot's laps. */
 export const PAR_SECONDS: Readonly<Record<CarId, number>> = {
-  'bmw-m3-e30': 31.1,
-  'mazda-mx5-na': 32.8,
-  'ford-mustang-gt-s550': 28.8,
-  'porsche-cayman-s-987': 28.7,
+  'bmw-m3-e30': 32,
+  'mazda-mx5-na': 34.1,
+  'ford-mustang-gt-s550': 29.4,
+  'porsche-cayman-s-987': 29.5,
 };
 
 export function parFromBotLap(botLapSeconds: number): number {

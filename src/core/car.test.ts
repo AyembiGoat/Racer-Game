@@ -198,7 +198,7 @@ describe('stepCar', () => {
     }
   });
 
-  it('lets the strong cars overpower the rear tyres out of a slow corner, not the MX-5', () => {
+  it('keeps every car on its line when the throttle is floored mid-corner', () => {
     const widening = (car: CarSpec) => {
       const cornering = runCar(
         rolling(car, 14, 2),
@@ -211,9 +211,7 @@ describe('stepCar', () => {
       const floored = runCar(cornering, { ...NO_INPUT, throttle: 1, steer: 1 }, 20, 'tarmac', car);
       return floored.slip - steady.slip;
     };
-    const mx5 = widening(CARS['mazda-mx5-na']);
-    expect(mx5).toBeLessThan(0.01);
-    expect(widening(CARS['ford-mustang-gt-s550'])).toBeGreaterThan(mx5 + 0.08);
-    expect(widening(m3)).toBeGreaterThan(mx5 + 0.04);
+    // Keys are on or off, so full throttle in a corner must not start a slide.
+    for (const id of CAR_IDS) expect(widening(CARS[id])).toBeLessThan(0.08);
   });
 });

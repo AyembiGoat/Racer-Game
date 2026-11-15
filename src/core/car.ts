@@ -29,7 +29,7 @@ export const HANDLING = {
   engineBrakeIdle: 1.2,
   engineBrakeRedline: 3.8,
   /** Full lock asks for this multiple of the steer angle that reaches the grip limit. */
-  steerLockMargin: 1.35,
+  steerLockMargin: 1.2,
   steerTurnInRate: 14,
   steerCenterRate: 24,
   steerCounterRate: 22,
@@ -40,8 +40,8 @@ export const HANDLING = {
   /** Share of the traction limit above which the driven axle starts to slip. */
   powerSlipOnset: 0.85,
   powerSlipSpan: 0.5,
-  powerGripLoss: 0.2,
-  powerRotation: 0.12,
+  powerGripLoss: 0.05,
+  powerRotation: 0.05,
   brakeGripLoss: 0.06,
   kerbGrip: 0.96,
   grassGrip: 0.7,
