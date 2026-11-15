@@ -166,6 +166,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     getCar: () => car,
     getCredits: () => ({
       balance: career.get().credits,
+      unlimited: career.isUnlimited(),
       earnedThisSession: sessionCredits,
       lastReward,
     }),
@@ -197,7 +198,6 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
     onEquipped(carId) {
       useCar(CARS[carId]);
     },
-    isSessionUnderway: () => state.completedLaps > 0 || state.elapsedSeconds > 0.5,
     getEstimates(spec) {
       let found = estimates.get(spec.id);
       if (!found) {
@@ -247,7 +247,7 @@ function runGame(gameMode: 'auto' | 'bot' | 'play') {
         wallHits: event.wallHits,
       });
       sessionCredits += lastReward.total;
-      ui.hud.showLapReward(lastReward, career.get().credits);
+      ui.hud.showLapReward(lastReward, career.isUnlimited() ? null : career.get().credits);
     }
     return result.events;
   }

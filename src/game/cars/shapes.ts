@@ -289,16 +289,16 @@ const fordMustangGtS550: CarShape = {
       [0, 0.68],
       [0.08, 0.79],
       [0.5, 0.9],
-      [1.75, 0.985],
-      [3.0, 1.0],
-      [3.7, 1.05],
+      [1.6, 0.96],
+      [3.0, 0.985],
+      [3.7, 1.04],
       [4.5, 1.03],
       [4.783, 0.99],
     ],
     crown: [
       [0, 0],
-      [0.4, 0.055],
-      [1.7, 0.05],
+      [0.4, 0.06],
+      [1.5, 0.07],
       [4.2, 0.012],
       [4.783, 0.008],
     ],
@@ -324,24 +324,24 @@ const fordMustangGtS550: CarShape = {
       [4.3, 0.085],
       [4.783, 0.06],
     ],
-    tuck: 0.04,
-    flareFront: 0.02,
-    flareRear: 0.03,
+    tuck: 0.05,
+    flareFront: 0.03,
+    flareRear: 0.045,
     flareSpan: 1.4,
     archGap: 0.06,
     smoothing: 0.09,
     sill: 'paint',
     cabin: {
-      cowl: 1.75,
-      screenTop: 2.42,
-      roofEnd: 3.1,
-      rearBase: 4.25,
+      cowl: 1.6,
+      screenTop: 2.36,
+      roofEnd: 3.05,
+      rearBase: 4.3,
       tumble: 0.2,
       roofCrown: 0.035,
       sideGlassEnd: 3.62,
       pillar: [3.02, 3.08],
       open: false,
-      tubFrom: 2.05,
+      tubFrom: 1.95,
       tubTo: 3.5,
       tubFloor: 0.48,
     },
@@ -354,12 +354,12 @@ const fordMustangGtS550: CarShape = {
     parts.box('trim', 0.98, 0.2, 0.03, 0, 0.58, nose - 0.004);
     parts.box('chrome', 0.14, 0.05, 0.012, 0, 0.58, nose - 0.022);
     parts.box('trim', 1.2, 0.1, 0.03, 0, 0.33, nose - 0.004);
-    parts.box('trim', 1.62, 0.025, 0.2, 0, 0.19, nose + 0.05);
+    parts.box('trim', 1.5, 0.02, 0.1, 0, 0.2, nose + 0.03);
     mirrored((side) => {
       // Slim lamps swept back around the corner.
-      parts.box('lamp', 0.3, 0.07, 0.03, side * 0.66, 0.7, nose + 0.005, 0, side * -0.22);
-      parts.box('trim', 0.34, 0.012, 0.03, side * 0.66, 0.744, nose + 0.004, 0, side * -0.22);
-      parts.box('amber', 0.12, 0.022, 0.02, side * 0.62, 0.46, nose - 0.006);
+      parts.box('lamp', 0.26, 0.07, 0.03, side * 0.6, 0.7, nose + 0.004, 0, side * -0.12);
+      parts.box('trim', 0.28, 0.012, 0.03, side * 0.6, 0.742, nose + 0.003, 0, side * -0.12);
+      parts.box('amber', 0.12, 0.022, 0.02, side * 0.58, 0.46, nose - 0.004);
     });
     // Bonnet vents.
     mirrored((side) => {

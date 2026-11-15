@@ -31,6 +31,7 @@ export type UiSoundKind =
 /** Credits for the pause summary. */
 export interface CreditSummary {
   readonly balance: number;
+  readonly unlimited: boolean;
   readonly earnedThisSession: number;
   readonly lastReward: LapReward | null;
 }
@@ -251,23 +252,16 @@ export function createScreens(
             ${renderIcon('garage')}
             <span>Garage</span>
           </span>
-          <span class="ui-menu-item-tag">Your cars</span>
-        </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="dealership">
-          <span class="ui-menu-item-left">
-            ${renderIcon('tag')}
-            <span>Dealership</span>
-          </span>
           <span class="ui-menu-item-tag tabular" data-role="title-credits"></span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 3" data-action="settings">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="settings">
           <span class="ui-menu-item-left">
             ${renderIcon('settings')}
             <span>Settings</span>
           </span>
           <span class="ui-menu-item-tag">Units · FOV · Audio</span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 4" data-action="controls">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 3" data-action="controls">
           <span class="ui-menu-item-left">
             ${renderIcon('controls')}
             <span>Controls</span>
@@ -312,9 +306,6 @@ export function createScreens(
           </button>
           <button type="button" class="ui-menu-item ui-focusable" data-pause-action="garage">
             <span class="ui-menu-item-left">${renderIcon('garage')}<span>Garage</span></span>
-          </button>
-          <button type="button" class="ui-menu-item ui-focusable" data-pause-action="dealership">
-            <span class="ui-menu-item-left">${renderIcon('tag')}<span>Dealership</span></span>
           </button>
           <button type="button" class="ui-menu-item ui-focusable" data-pause-action="settings">
             <span class="ui-menu-item-left">${renderIcon('settings')}<span>Settings</span></span>
@@ -1007,7 +998,8 @@ export function createScreens(
     root.querySelectorAll<HTMLElement>('[data-role="car-spec-line"]').forEach((el) => {
       el.textContent = `${car.year} ${carName(car)} · ${car.chassis} · ${litres} L ${engine} · ${real.gearRatios.length}-speed`;
     });
-    titleCredits.textContent = formatCredits(callbacks.getCredits().balance);
+    const credits = callbacks.getCredits();
+    titleCredits.textContent = credits.unlimited ? '∞ cr' : formatCredits(credits.balance);
   }
   refreshCar();
 
@@ -1021,7 +1013,7 @@ export function createScreens(
     sumCurr.textContent = formatLapTime(state.currentLapSeconds);
     const credits = callbacks.getCredits();
     sumEarned.textContent = formatCredits(credits.earnedThisSession);
-    sumBalance.textContent = formatCredits(credits.balance);
+    sumBalance.textContent = credits.unlimited ? '∞ cr' : formatCredits(credits.balance);
     const reward = credits.lastReward;
     sumReward.hidden = reward === null;
     if (reward) {

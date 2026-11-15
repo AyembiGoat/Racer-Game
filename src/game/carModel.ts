@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { CarSpec } from '../core/cars';
 import { carAnchors } from '../core/cars';
 import { loftBody } from './cars/loft';
@@ -33,8 +34,7 @@ function carMaterials(car: CarSpec, caliper: number): Record<PartMaterial, THREE
       metalness: car.visual.metallic ? 0.35 : 0.08,
       clearcoat: 0.6,
       clearcoatRoughness: 0.12,
-      // The sky map is bright and blurred; at full strength it washes dark paint out.
-      envMapIntensity: 0.45,
+      envMapIntensity: 0.8,
     }),
     trim: new THREE.MeshStandardMaterial({
       color: 0x15161a,
@@ -47,7 +47,7 @@ function carMaterials(car: CarSpec, caliper: number): Record<PartMaterial, THREE
       roughness: 0.04,
       metalness: 0.7,
       transparent: true,
-      opacity: 0.56,
+      opacity: 0.82,
       depthWrite: false,
     }),
     interior: standard(0x1b1c1f, 0.92, 0),
@@ -254,7 +254,11 @@ export function showCar(car: CarSpec): void {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xcfd4da);
-  scene.add(new THREE.HemisphereLight(0xf4f7fc, 0x7c8086, 1.35));
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.7;
+  pmrem.dispose();
+  scene.add(new THREE.HemisphereLight(0xf4f7fc, 0x7c8086, 0.6));
   const key = new THREE.DirectionalLight(0xfff4e2, 2.6);
   key.position.set(6, 9, 7);
   scene.add(key);

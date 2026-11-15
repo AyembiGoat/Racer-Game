@@ -28,7 +28,7 @@ export interface HudController {
   update(state: GameState, input: GameInput, events: readonly GameEvent[], dtSeconds: number): void;
   notifyCamera(mode: CameraMode): void;
   /** Adds the credit breakdown for the lap just completed to the lap banner. */
-  showLapReward(reward: LapReward, balance: number): void;
+  showLapReward(reward: LapReward, balance: number | null): void;
   triggerResetVeil(): void;
   resetTransientState(): void;
 }
@@ -301,7 +301,7 @@ export function createHud(track: Track): HudController {
       }
       lapRewardLines.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
       lapRewardTotal.textContent = `+${formatCredits(reward.total)}`;
-      lapRewardBalance.textContent = `Balance ${formatCredits(balance)}`;
+      lapRewardBalance.textContent = balance === null ? '' : `Balance ${formatCredits(balance)}`;
       lapReward.hidden = false;
       lapBannerRemaining = 5;
     },

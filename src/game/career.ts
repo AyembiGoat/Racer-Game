@@ -1,5 +1,6 @@
 import type { Career, EquipResult, LapOutcome, LapReward, PurchaseResult } from '../core/career';
 import {
+  MAX_CREDITS,
   addDistance,
   bankLap,
   createCareer,
@@ -17,6 +18,17 @@ export const CAREER_STORAGE_KEY = 'racer-game.career.v1';
  * `core/career`; this holds the current value and writes it to browser storage when it
  * changes, never per frame.
  */
+/**
+ * Test switch: credits never run out, so every car can be bought and looked at. Opening
+ * the game with `?economy` in the address turns it off and uses the real balance.
+ */
+const UNLIMITED_CREDITS = !new URLSearchParams(window.location.search).has('economy');
+
+const topUp = (career: Career): Career =>
+  UNLIMITED_CREDITS && career.credits !== MAX_CREDITS
+    ? { ...career, credits: MAX_CREDITS }
+    : career;
+
 export function createCareerStore() {
   let storageAvailable = true;
   let stored: string | null = null;
@@ -26,10 +38,11 @@ export function createCareerStore() {
     storageAvailable = false;
   }
   const loaded = parseCareer(stored);
-  let career = loaded.career;
+  let career = topUp(loaded.career);
   const listeners = new Set<() => void>();
 
-  function commit(next: Career) {
+  function commit(changed: Career) {
+    const next = topUp(changed);
     if (next === career) return;
     career = next;
     try {
@@ -53,6 +66,7 @@ export function createCareerStore() {
     /** True when the stored save was unreadable or had fields that needed repair. */
     wasRepaired: () => loaded.repaired,
     isStorageAvailable: () => storageAvailable,
+    isUnlimited: () => UNLIMITED_CREDITS,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);

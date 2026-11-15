@@ -81,8 +81,60 @@ export interface BodyDims {
   readonly rearRadius: number;
 }
 
-const BODY_RING = 11;
-const CABIN_RING = 7;
+const BODY_CONTROL = 11;
+const CABIN_CONTROL = 7;
+/** Points drawn per control segment: the control ring is a cage, the shell a curve through it. */
+const BODY_STEPS = 5;
+const CABIN_STEPS = 4;
+const BODY_RING = (BODY_CONTROL - 1) * BODY_STEPS + 1;
+const CABIN_RING = (CABIN_CONTROL - 1) * CABIN_STEPS + 1;
+/** Radius of the body corners seen from above. */
+const CORNER_RADIUS = 0.12;
+
+/**
+ * Draws a ring through its control points. Segments from `from` to `to` are a smooth
+ * curve; the rest stay straight. `mirrorEnd` treats the last point as lying on the
+ * centreline so the curve crosses it level.
+ */
+function refine(
+  control: THREE.Vector2[],
+  steps: number,
+  from: number,
+  to: number,
+  mirrorEnd: boolean,
+): THREE.Vector2[] {
+  const out: THREE.Vector2[] = [];
+  const at = (i: number) => control[Math.max(0, Math.min(control.length - 1, i))] as THREE.Vector2;
+  for (let i = 0; i < control.length - 1; i++) {
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const smooth = i >= from && i < to;
+    let p0 = i - 1 >= from ? at(i - 1) : p1;
+    let p3 = i + 2 <= to ? at(i + 2) : p2;
+    if (smooth && mirrorEnd && i + 2 > to && to === control.length - 1) {
+      p3 = new THREE.Vector2(-p1.x, p1.y);
+    }
+    if (!smooth) {
+      p0 = p1;
+      p3 = p2;
+    }
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps;
+      if (!smooth) {
+        out.push(new THREE.Vector2(p1.x + (p2.x - p1.x) * t, p1.y + (p2.y - p1.y) * t));
+        continue;
+      }
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const blend = (a: number, b: number, c: number, d: number) =>
+        0.5 *
+        (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3);
+      out.push(new THREE.Vector2(blend(p0.x, p1.x, p2.x, p3.x), blend(p0.y, p1.y, p2.y, p3.y)));
+    }
+  }
+  out.push(at(control.length - 1).clone());
+  return out;
+}
 
 function bump(t: number): number {
   const a = Math.abs(t);
@@ -266,7 +318,15 @@ export function loftBody(
       new THREE.Vector2(hw - sh, yE),
     ];
     const inner = hw - sh;
-    if (surface.inCabin(z)) {
+    // Round the four corners of the body seen from above.
+    const fromEnd = Math.min(z, dims.length - z);
+    if (fromEnd < CORNER_RADIUS) {
+      const limit =
+        hw + fl - CORNER_RADIUS + Math.sqrt(CORNER_RADIUS ** 2 - (CORNER_RADIUS - fromEnd) ** 2);
+      for (const point of ring) point.x = Math.min(point.x, limit);
+    }
+    const cabinHere = surface.inCabin(z);
+    if (cabinHere) {
       const floor = surface.inTub(z) ? cabin.tubFloor : yE - 0.015;
       ring.push(
         new THREE.Vector2(inner - 0.05, yE - 0.004),
@@ -281,10 +341,11 @@ export function loftBody(
         new THREE.Vector2(0, yE + c),
       );
     }
-    return ring;
+    return refine(ring, BODY_STEPS, 2, cabinHere ? 7 : BODY_CONTROL - 1, !cabinHere);
   };
 
-  const bodyMaterial = (segment: number, z: number): PartMaterial => {
+  const bodyMaterial = (index: number, z: number): PartMaterial => {
+    const segment = Math.floor(index / BODY_STEPS);
     if (segment === 0) return 'trim';
     if (segment <= 2) return shape.sill;
     if (segment >= 7 && surface.inCabin(z)) return segment === 7 ? 'trim' : 'interior';
@@ -300,7 +361,7 @@ export function loftBody(
     const lean = cabin.tumble * Math.min(1, rise / Math.max(fullRise, 0.05));
     const crown = cabin.roofCrown * Math.min(1, rise / Math.max(fullRise, 0.05));
     const roofHalf = base - lean;
-    return [
+    const control = [
       new THREE.Vector2(base, belt),
       new THREE.Vector2(base - lean * 0.42, belt + rise * 0.5),
       new THREE.Vector2(base - lean * 0.88, belt + rise * 0.93),
@@ -309,9 +370,11 @@ export function loftBody(
       new THREE.Vector2(roofHalf * 0.45, top + crown * 0.92),
       new THREE.Vector2(0, top + crown),
     ];
+    return refine(control, CABIN_STEPS, 0, CABIN_CONTROL - 1, true);
   };
 
-  const cabinMaterial = (segment: number, z: number): PartMaterial | null => {
+  const cabinMaterial = (index: number, z: number): PartMaterial | null => {
+    const segment = Math.floor(index / CABIN_STEPS);
     const onRoof = z > cabin.screenTop && z < cabin.roofEnd;
     if (segment <= 1) {
       if (cabin.open) return null;
@@ -422,6 +485,35 @@ export function loftBody(
     }
     previousZ = z;
   });
+
+  // Door shut lines: thin dark strips laid just proud of the flank.
+  const doorFront = cabin.cowl + 0.16;
+  const rearArchStart = dims.rearAxle - dims.rearRadius - shape.archGap;
+  const doorRear = Math.min(doorFront + 1.2, rearArchStart - 0.1);
+  for (const z of [doorFront, doorRear]) {
+    const before = bodyRing(z - 0.004);
+    const after = bodyRing(z + 0.004);
+    for (const side of [1, -1]) {
+      for (let i = 2 * BODY_STEPS; i < 7 * BODY_STEPS; i++) {
+        const a0 = before[i];
+        const a1 = before[i + 1];
+        const b0 = after[i];
+        const b1 = after[i + 1];
+        if (!a0 || !a1 || !b0 || !b1) continue;
+        const out = (point: THREE.Vector2, at: number) =>
+          new THREE.Vector3((point.x + 0.003) * side, point.y, zOrigin + at);
+        quad(
+          parts,
+          'trim',
+          out(a0, z - 0.004),
+          out(a1, z - 0.004),
+          out(b1, z + 0.004),
+          out(b0, z + 0.004),
+          side < 0,
+        );
+      }
+    }
+  }
 
   parts.sealSurfaces();
   for (const [a, b, c] of caps) parts.triangle('paint', a, b, c);

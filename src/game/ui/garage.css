@@ -1,12 +1,8 @@
-/* Garage and dealership: car list, live 3D bay, data panel, action bar. */
+/* Garage: the car fills the screen; a list, a few figures and two buttons sit over it. */
 .ui-garage {
   position: fixed;
   inset: 0;
   z-index: 30;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: var(--space-4);
-  padding: var(--safe-y) var(--safe-x);
   pointer-events: none;
   animation: ui-fade-in var(--dur-mid) var(--ease-out) both;
 }
@@ -16,137 +12,65 @@
 }
 
 .ui-garage > * {
+  position: absolute;
   pointer-events: auto;
 }
 
-.ui-garage-top {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  gap: var(--space-5);
+.ui-garage-bay {
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
 }
 
-.ui-garage-credits {
-  justify-self: end;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--panel-static-bg);
-}
-
-.ui-garage-credits-label {
-  font-size: var(--text-label);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.ui-garage-credits-value {
-  font-family: var(--font-display);
-  font-size: var(--text-display);
-  font-weight: 600;
-  line-height: 1.05;
-  color: var(--accent-bright);
-}
-
-.ui-garage-main {
-  display: grid;
-  grid-template-columns: minmax(250px, 23vw) minmax(0, 1fr) minmax(300px, 27vw);
-  gap: var(--space-4);
-  min-height: 0;
-}
-
-.ui-garage-list,
-.ui-garage-panel {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--panel-static-bg);
-  box-shadow: var(--panel-shadow);
-  overflow-y: auto;
-  min-height: 0;
+.ui-garage-bay.is-dragging {
+  cursor: grabbing;
 }
 
 .ui-garage-list {
+  left: var(--safe-x);
+  top: var(--safe-y);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-
-.ui-garage-empty {
-  margin: var(--space-4);
-  color: var(--text-secondary);
-  font-size: var(--text-body);
+  gap: var(--space-1);
+  width: min(240px, 28vw);
 }
 
 .ui-garage-car {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: 'art text' 'art tag';
-  column-gap: var(--space-3);
-  row-gap: 2px;
+  display: flex;
   align-items: center;
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: rgb(255 255 255 / 3%);
-  color: var(--text-primary);
+  background: rgb(10 12 15 / 55%);
+  color: var(--text-secondary);
   font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
+    color var(--dur-fast) var(--ease-out);
 }
 
 .ui-garage-car:hover {
-  background: rgb(255 255 255 / 7%);
+  color: var(--text-primary);
+  background: rgb(30 35 44 / 80%);
 }
 
 .ui-garage-car.is-selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text-primary);
+  background: rgb(30 35 44 / 90%);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.ui-garage-car .ui-car-silhouette {
-  grid-area: art;
-  width: 76px;
-  height: 26px;
-}
-
-.ui-garage-car.is-selected .ui-car-silhouette {
-  color: var(--text-primary);
-}
-
-.ui-garage-car-text {
-  grid-area: text;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.ui-garage-car-name {
-  font-size: var(--text-body);
-  font-weight: 600;
-}
-
-.ui-garage-car-sub {
+.ui-garage-car-tag {
+  display: inline-flex;
   font-size: var(--text-label);
   color: var(--text-muted);
-}
-
-.ui-garage-car-tag {
-  grid-area: tag;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--text-label);
-  font-weight: 600;
-  color: var(--text-secondary);
 }
 
 .ui-garage-car-tag.is-equipped {
@@ -154,148 +78,67 @@
 }
 
 .ui-garage-car-tag .ui-icon {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
-/* The bay is a window onto the 3D canvas underneath. */
-.ui-garage-bay {
-  position: relative;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  cursor: grab;
-  touch-action: none;
-  outline: none;
-}
-
-.ui-garage-bay.is-dragging {
-  cursor: grabbing;
-}
-
-.ui-garage-bay:focus-visible {
-  border-color: var(--accent-bright);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
-.ui-garage-bay-hint {
-  position: absolute;
-  left: 50%;
-  bottom: var(--space-3);
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-  font-size: var(--text-label);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.ui-garage-panel {
-  padding: var(--space-4) var(--space-5);
-}
-
-.ui-garage-panel-year {
-  font-size: var(--text-label);
-  letter-spacing: 0.1em;
-  color: var(--accent-bright);
-}
-
-.ui-garage-panel-title {
-  margin: 0;
+.ui-garage-credits {
+  right: var(--safe-x);
+  top: var(--safe-y);
   font-family: var(--font-display);
   font-size: var(--text-display);
   font-weight: 600;
-  line-height: 1.05;
-  text-transform: uppercase;
+  line-height: 1;
+  color: var(--accent-bright);
 }
 
-.ui-garage-panel-sub {
-  margin: 2px 0 0;
-  font-size: var(--text-label);
-  color: var(--text-secondary);
+.ui-garage-info {
+  left: var(--safe-x);
+  bottom: var(--safe-y);
+  pointer-events: none;
 }
 
-.ui-garage-section {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin: var(--space-4) 0 var(--space-1);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--border-strong);
-  font-size: var(--text-label);
+.ui-garage-name {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
   font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.ui-garage-stats {
+  display: flex;
+  gap: var(--space-8);
+  margin: 0;
+}
+
+.ui-garage-stats dt {
+  font-size: var(--text-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.ui-garage-section span {
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
   color: var(--text-muted);
 }
 
-.ui-garage-spec {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: 3px 0;
-  font-size: var(--text-body);
-  line-height: 1.3;
+.ui-garage-stats dd {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text-primary);
 }
 
-.ui-garage-spec > span:first-child {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.ui-garage-spec > span:last-child {
-  text-align: right;
-}
-
-.ui-garage-bar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.ui-garage-view,
 .ui-garage-actions {
+  right: var(--safe-x);
+  bottom: var(--safe-y);
   display: flex;
   gap: var(--space-2);
 }
 
-.ui-garage-notes {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.ui-garage-reason {
-  font-size: var(--text-body);
-  color: var(--text-secondary);
-  text-align: right;
-}
-
-.ui-garage-reason.is-denied {
-  color: var(--warning);
-  animation: ui-garage-denied var(--dur-slow) var(--ease-out);
-}
-
-@keyframes ui-garage-denied {
-  from {
-    background: var(--warning-soft);
-  }
-  to {
-    background: transparent;
-  }
+.ui-garage-actions .ui-btn.is-primary {
+  min-width: 150px;
 }
 
 .ui-btn.is-unavailable {
@@ -303,45 +146,17 @@
   cursor: not-allowed;
 }
 
-.ui-garage-dialog-layer {
-  z-index: 40;
+.ui-btn.is-denied {
+  animation: ui-garage-denied var(--dur-slow) var(--ease-out);
 }
 
-.ui-garage-dialog-layer[hidden] {
-  display: none;
-}
-
-.ui-garage-dialog {
-  width: min(480px, 100%);
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.ui-garage-dialog-body {
-  font-size: var(--text-body);
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
-.ui-garage-dialog-body p {
-  margin: 0 0 var(--space-2);
-}
-
-.ui-garage-receipt {
-  margin-bottom: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-}
-
-.ui-garage-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
+@keyframes ui-garage-denied {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
 }
 
 /* Pause summary credits */
@@ -373,32 +188,8 @@
   display: none;
 }
 
-@media (max-width: 1100px) {
-  .ui-garage-main {
-    grid-template-columns: minmax(210px, 24vw) minmax(0, 1fr) minmax(270px, 32vw);
-    gap: var(--space-3);
-  }
-
-  .ui-garage-bay-hint {
-    display: none;
-  }
-
-  .ui-garage-view .ui-btn span,
-  .ui-garage-actions [data-role='reset-career'] span {
-    display: none;
-  }
-}
-
-@media (max-height: 620px) {
-  .ui-garage {
-    gap: var(--space-2);
-  }
-
-  .ui-garage-spec {
-    padding: 1px 0;
-  }
-
-  .ui-garage-section {
-    margin-top: var(--space-2);
+@media (max-width: 900px) {
+  .ui-garage-stats {
+    gap: var(--space-5);
   }
 }

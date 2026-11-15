@@ -103,8 +103,8 @@ Per-car tuning (not real-world data): `gripG`, `brakeG`, `yawResponse`,
 | Car        | Paint                               | Read at a glance                                                                                                                        |
 | ---------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | M3         | Red (as `reference/bmw-m3-e30.png`) | Upright three-box saloon, box arches, quad round lamps, twin kidneys, raised boot lid and wing, cross-spoke wheels, twin tailpipes left |
-| MX-5       | Blue                                | Low open two-seater, rounded nose with oval intake, flat tail with oval lamps, seven-spoke wheels, single tailpipe right                |
-| Mustang GT | Dark grey                           | Long bonnet, fastback roof, wide haunches, trapezoid grille, three-bar tail lamps, twin tailpipes at the corners                        |
+| MX-5       | Green                               | Low open two-seater, rounded nose with oval intake, flat tail with oval lamps, seven-spoke wheels, single tailpipe right                |
+| Mustang GT | Blue                                | Long bonnet, fastback roof, wide haunches, trapezoid grille, three-bar tail lamps, twin tailpipes at the corners                        |
 | Cayman S   | Silver                              | Cab-forward mid-engine coupe, roof falling to the tail, side intakes ahead of the rear wheels, oval lamps, central twin tailpipe        |
 
 Reference photographs (not committed; kept in `reference/ui/cars/`):
@@ -128,7 +128,7 @@ within 30 mm and the wheel centres exactly.
   is what the game uses and what the tests check.
 - Front overhang values and the body proportions in `src/game/cars/shapes.ts` were
   estimated from photographs, not taken from drawings.
-- Paint is described by plain colour (Red, Blue, Dark grey, Silver); no factory colour
+- Paint is described by plain colour (Red, Green, Blue, Silver); no factory colour
   names are claimed.
 - The models are recognisable low-detail shapes built from lofted sections. They have no
   badges and are not accurate replicas.

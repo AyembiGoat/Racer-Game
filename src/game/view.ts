@@ -33,7 +33,7 @@ export function createView(track: Track, initialCar: CarSpec) {
   let anchors = carAnchors(car);
   let carModel = buildCarModel(car);
   world.scene.add(carModel.root);
-  const showroom = createShowroom(world.scene.environment);
+  const showroom = createShowroom(renderer);
   let showroomActive = false;
 
   // Pre-allocated ring buffer of rear-tyre marks on tarmac when sliding hard.

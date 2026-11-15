@@ -151,7 +151,7 @@ if (args.includes('--materials')) {
     await game.close();
   }
 } else {
-  const game = await launchGame({ width: 1280, height: 720, mode: 'auto' });
+  const game = await launchGame({ width: 1280, height: 720, mode: 'auto', query: 'auto&economy' });
   const shot = (name) => game.screenshot(`playtest/${name}.png`);
   const settle = () => game.page.evaluate(() => new Promise((r) => window.setTimeout(r, 450)));
 
@@ -232,22 +232,18 @@ if (args.includes('--materials')) {
           .every(([, l]) => l.peak < levels.wallHit.peak * 0.35),
       );
 
-      // Economy: a clean bot lap pays, the dealership refuses and sells, the garage equips.
+      // Economy: a clean bot lap pays, the garage refuses, sells and equips.
       await game.loadCareer(11000, ['bmw-m3-e30'], 'bmw-m3-e30');
       await game.page.evaluate(() => document.fonts.ready);
-      await game.openGarage('dealership');
+      await game.openGarage('garage');
       check('bay replaces the circuit in the garage', (await game.showroom()).active);
-      await game.screenshot('playtest/dealership.png');
       await game.page.click('[data-car-id="ford-mustang-gt-s550"]');
+      await game.screenshot('playtest/garage.png');
       await game.page.click('[data-role="primary"]');
       const refused = await game.career();
       check(
-        'purchase without enough credits changes nothing and says why',
-        refused.credits === 11000 &&
-          refused.owned.length === 1 &&
-          /1,000 cr short/.test(
-            await game.page.$eval('[data-role="reason"]', (el) => el.textContent ?? ''),
-          ),
+        'purchase without enough credits changes nothing',
+        refused.credits === 11000 && refused.owned.length === 1,
       );
       await game.page.keyboard.press('Escape');
       await game.setScreen('race');
@@ -259,15 +255,9 @@ if (args.includes('--materials')) {
       check('clean first lap pays 1,050 cr', (await game.career()).credits === 12050);
       await game.screenshot('playtest/lap-reward.png');
       await game.setScreen('pause');
-      await game.openGarage('dealership');
+      await game.openGarage('garage');
       await game.page.click('[data-car-id="ford-mustang-gt-s550"]');
       await game.page.click('[data-role="primary"]');
-      check(
-        'purchase dialog opens with Cancel focused',
-        (await game.page.evaluate(() => document.activeElement?.textContent)) === 'Cancel',
-      );
-      await game.screenshot('playtest/purchase-dialog.png');
-      await game.page.click('[data-dialog-action="confirm"]');
       const bought = await game.career();
       check(
         'purchase takes the price once and adds the car',
@@ -275,14 +265,11 @@ if (args.includes('--materials')) {
           bought.owned.includes('ford-mustang-gt-s550') &&
           bought.equipped === 'bmw-m3-e30',
       );
-      await game.page.click('[data-dialog-action="confirm"]');
-      // A session is paused behind the garage, so equipping asks first.
-      await game.page.click('[data-dialog-action="confirm"]');
+      await game.page.click('[data-role="primary"]');
       check(
         'equipping swaps the car on the grid',
         (await game.carId()) === 'ford-mustang-gt-s550' && (await game.state()).car.speed === 0,
       );
-      await game.screenshot('playtest/garage.png');
       await game.page.reload({ waitUntil: 'load' });
       await game.page.waitForFunction(() => window.__racer !== undefined, { timeout: 60000 });
       const reloaded = await game.career();

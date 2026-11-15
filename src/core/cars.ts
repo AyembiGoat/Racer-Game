@@ -241,7 +241,7 @@ export const CARS: Readonly<Record<CarId, CarSpec>> = {
     year: 1990,
     variant: '1.6, 5-speed',
     price: 4500,
-    visual: { paint: 0x1f4f9a, paintName: 'Blue', metallic: false, frontOverhang: 0.8 },
+    visual: { paint: 0x1d4a35, paintName: 'Green', metallic: false, frontOverhang: 0.8 },
     real: {
       enginePosition: 'front',
       engineLayout: 'inline',
@@ -289,7 +289,7 @@ export const CARS: Readonly<Record<CarId, CarSpec>> = {
     year: 2015,
     variant: '5.0 fastback, 6-speed',
     price: 12000,
-    visual: { paint: 0x3c4047, paintName: 'Dark grey', metallic: true, frontOverhang: 0.92 },
+    visual: { paint: 0x143c82, paintName: 'Blue', metallic: true, frontOverhang: 0.92 },
     real: {
       enginePosition: 'front',
       engineLayout: 'vee',
