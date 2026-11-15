@@ -1,5 +1,6 @@
 import type { GameInput } from '../core/game';
-import { clamp, moveToward } from '../core/vec';
+import { moveToward } from '../core/vec';
+import { rampSteer } from './steerRamp';
 import type { ControlAction, KeyBindings } from './ui/settings';
 import { DEFAULT_BINDINGS } from './ui/settings';
 
@@ -72,7 +73,7 @@ export function createHumanInput(getBindings: () => KeyBindings = () => DEFAULT_
       }
     },
 
-    /** Sample one 60 Hz step of input with gentle progressive keyboard ramp-in. */
+    /** Sample one 60 Hz step of input with keys eased into steering and pedal positions. */
     sample(dtSeconds: number): GameInput {
       const rawThrottle = anyHeld('accelerate') ? 1 : 0;
       const brake = anyHeld('brake') ? 1 : 0;
@@ -80,18 +81,13 @@ export function createHumanInput(getBindings: () => KeyBindings = () => DEFAULT_
       const right = anyHeld('steerRight') ? 1 : 0;
       const rawSteer = right - left;
 
-      // Progressive onset makes brief steering taps subtle on straights; releasing
-      // drops immediately to 0 so the car's caster self-centres without lag.
-      if (rawSteer === 0) {
-        smoothedSteer = 0;
-      } else if (Math.sign(rawSteer) !== Math.sign(smoothedSteer) && smoothedSteer !== 0) {
-        smoothedSteer = rawSteer * 0.35;
-      } else {
-        smoothedSteer = clamp(moveToward(smoothedSteer, rawSteer, dtSeconds / 0.075), -1, 1);
-      }
-
-      smoothedThrottle =
-        rawThrottle === 0 ? 0 : moveToward(smoothedThrottle, rawThrottle, dtSeconds / 0.05);
+      smoothedSteer = rampSteer(smoothedSteer, rawSteer, dtSeconds);
+      // The pedal eases on and off so power does not arrive or vanish in one step.
+      smoothedThrottle = moveToward(
+        smoothedThrottle,
+        rawThrottle,
+        dtSeconds / (rawThrottle > 0 ? 0.16 : 0.08),
+      );
 
       return {
         throttle: smoothedThrottle,

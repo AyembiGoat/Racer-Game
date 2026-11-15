@@ -39,9 +39,9 @@ export function createEngine(context: BaseAudioContext) {
   master.gain.value = MASTER_LEVEL;
 
   const limiter = context.createDynamicsCompressor();
-  limiter.threshold.value = -5;
+  limiter.threshold.value = -6;
   limiter.knee.value = 6;
-  limiter.ratio.value = 8;
+  limiter.ratio.value = 12;
   limiter.attack.value = 0.003;
   limiter.release.value = 0.12;
   limiter.connect(master).connect(context.destination);

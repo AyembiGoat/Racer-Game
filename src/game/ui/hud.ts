@@ -1,11 +1,13 @@
 import type { DrivingSurface } from '../../core/car';
-import { CAR_TUNING } from '../../core/car';
+import type { LapReward } from '../../core/career';
+import { CARS } from '../../core/cars';
 import type { GameEvent, GameInput, GameState } from '../../core/game';
 import type { Track } from '../../core/track';
 import { clamp } from '../../core/vec';
 import type { CameraMode } from '../view';
 import {
   convertSpeed,
+  formatCredits,
   formatDelta,
   formatGear,
   formatKeyCode,
@@ -25,6 +27,8 @@ export interface HudController {
   applySettings(settings: GameSettings, bindings: KeyBindings): void;
   update(state: GameState, input: GameInput, events: readonly GameEvent[], dtSeconds: number): void;
   notifyCamera(mode: CameraMode): void;
+  /** Adds the credit breakdown for the lap just completed to the lap banner. */
+  showLapReward(reward: LapReward, balance: number | null): void;
   triggerResetVeil(): void;
   resetTransientState(): void;
 }
@@ -45,6 +49,11 @@ export function createHud(track: Track): HudController {
           <div class="hud-lap-banner-time tabular" data-role="lap-banner-time">0:00.000</div>
         </div>
         <div class="hud-lap-banner-delta tabular" data-role="lap-banner-delta"></div>
+        <div class="hud-lap-reward" data-role="lap-reward" hidden>
+          <div class="hud-lap-reward-lines" data-role="lap-reward-lines"></div>
+          <div class="hud-lap-reward-total tabular" data-role="lap-reward-total"></div>
+          <div class="hud-lap-reward-balance tabular" data-role="lap-reward-balance"></div>
+        </div>
       </div>
       <div class="hud-camera-toast" data-role="camera-toast" aria-live="polite">
         ${renderIcon('camera')}
@@ -169,6 +178,10 @@ export function createHud(track: Track): HudController {
   const lapBannerTag = q('lap-banner-tag');
   const lapBannerTime = q('lap-banner-time');
   const lapBannerDelta = q('lap-banner-delta');
+  const lapReward = q('lap-reward');
+  const lapRewardLines = q('lap-reward-lines');
+  const lapRewardTotal = q('lap-reward-total');
+  const lapRewardBalance = q('lap-reward-balance');
   const cameraToast = q('camera-toast');
   const cameraToastLabel = q('camera-toast-label');
 
@@ -268,6 +281,31 @@ export function createHud(track: Track): HudController {
       cameraToast.classList.add('is-visible');
     },
 
+    showLapReward(reward, balance) {
+      const lines = [`<span>Lap</span><span class="tabular">${formatCredits(reward.lap)}</span>`];
+      if (reward.clean > 0) {
+        lines.push(
+          `<span>Clean lap</span><span class="tabular">${formatCredits(reward.clean)}</span>`,
+        );
+      } else {
+        lines.push('<span>Barrier contact</span><span>No clean bonus</span>');
+      }
+      if (reward.personalBest > 0) {
+        lines.push(
+          `<span>${reward.bestLap === 'first' ? 'First timed lap' : 'Personal best'}</span><span class="tabular">${formatCredits(reward.personalBest)}</span>`,
+        );
+      } else if (reward.bestLap === 'small-gain') {
+        lines.push('<span>Best by under 0.25 s</span><span>No bonus</span>');
+      } else if (reward.bestLap === 'over-par') {
+        lines.push('<span>Best, slower than par</span><span>No bonus</span>');
+      }
+      lapRewardLines.innerHTML = lines.map((line) => `<div>${line}</div>`).join('');
+      lapRewardTotal.textContent = `+${formatCredits(reward.total)}`;
+      lapRewardBalance.textContent = balance === null ? '' : `Balance ${formatCredits(balance)}`;
+      lapReward.hidden = false;
+      lapBannerRemaining = 5;
+    },
+
     triggerResetVeil() {
       resetVeilRemaining = 0.24;
       resetVeil.classList.add('is-active');
@@ -336,6 +374,7 @@ export function createHud(track: Track): HudController {
           }`;
           lapBanner.classList.toggle('is-best', isBestBadge);
           lapBanner.classList.add('is-visible');
+          lapReward.hidden = true;
           lapBannerRemaining = 3.2;
         }
       }
@@ -361,7 +400,7 @@ export function createHud(track: Track): HudController {
         rpmValue.textContent = rpmText;
       }
 
-      const redline = CAR_TUNING.redlineRpm;
+      const redline = CARS[state.carId].real.redlineRpm;
       const rpmNorm = clamp(state.car.rpm / redline, 0, 1);
       const rpmScale = `scaleX(${rpmNorm.toFixed(3)})`;
       if (rpmScale !== lastRpmScale) {

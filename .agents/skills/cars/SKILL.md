@@ -36,8 +36,12 @@ attachment are shared presentation logic driven from `CarState`. A new car suppl
 
 ## Checking a car
 
-First run `npm run playtest -- --car` and open `playtest/car.png` to inspect the car
-from four angles against its reference in `reference/`. Then run `npm run playtest` and
+First run `npm run playtest -- --car` (every car) or `npm run playtest -- --car <id>` and
+open `playtest/car-<id>.png` to inspect the car from four angles. Ids are in
+`src/core/cars.ts`. Facts and tuning for a car live in `src/core/cars.ts`, its body shape
+in `src/game/cars/shapes.ts`, its engine voice in `src/game/audio/profiles.ts`, and its
+par lap in `src/core/career.ts` (a test holds par to the bot's lap, so re-derive it after
+any handling change). Then run `npm run playtest` and
 inspect the gameplay screenshots in `playtest/`:
 
 - Wheels touch the road surface (`y = 0`) without sinking through the asphalt or

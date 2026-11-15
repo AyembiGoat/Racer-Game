@@ -1,7 +1,18 @@
+import type { LapReward } from '../../core/career';
+import type { CarSpec } from '../../core/cars';
+import { carName } from '../../core/cars';
 import type { GameState } from '../../core/game';
+import { renderCarSilhouette } from '../cars/silhouette';
 import type { CameraMode } from '../view';
-import { formatDistance, formatKeyCode, formatLapTime, formatSessionTime } from './format';
-import { renderBmwM3Silhouette, renderIcon } from './icons';
+import {
+  formatCredits,
+  formatDistance,
+  formatKeyCode,
+  formatLapTime,
+  formatSessionTime,
+} from './format';
+import type { GarageController, GarageTab } from './garage';
+import { renderIcon } from './icons';
 import {
   CONTROL_ACTIONS,
   DEFAULT_SETTINGS,
@@ -12,8 +23,18 @@ import {
   type SettingsStore,
 } from './settings';
 
-export type ScreenName = 'loading' | 'title' | 'race' | 'pause' | 'settings' | 'controls';
-export type UiSoundKind = 'focus' | 'select' | 'back' | 'confirm' | 'warning';
+export type ScreenName =
+  'loading' | 'title' | 'race' | 'pause' | 'settings' | 'controls' | 'garage';
+export type UiSoundKind =
+  'focus' | 'select' | 'back' | 'confirm' | 'warning' | 'purchase' | 'denied';
+
+/** Credits for the pause summary. */
+export interface CreditSummary {
+  readonly balance: number;
+  readonly unlimited: boolean;
+  readonly earnedThisSession: number;
+  readonly lastReward: LapReward | null;
+}
 
 export interface ScreensCallbacks {
   onStartRace(): void;
@@ -22,11 +43,14 @@ export interface ScreensCallbacks {
   onQuitToTitle(): void;
   onOpenSettings(): void;
   onOpenControls(): void;
+  onOpenGarage(tab: GarageTab): void;
   onCloseSubscreen(): void;
   onPlaySound(kind: UiSoundKind): void;
   onSkipLoading(): void;
   getGameState(): GameState;
   getCurrentCamera(): CameraMode;
+  getCar(): CarSpec;
+  getCredits(): CreditSummary;
 }
 
 export interface ScreensController {
@@ -36,6 +60,8 @@ export interface ScreensController {
   refreshPauseSummary(state: GameState): void;
   refreshBindings(): void;
   isListeningForKey(): boolean;
+  /** Rewrites every car name on the loading, title and pause screens. */
+  refreshCar(): void;
 }
 
 type SettingsTab = 'driving' | 'display' | 'audio';
@@ -153,6 +179,7 @@ const SETTING_DEFS: readonly SettingDef[] = [
 export function createScreens(
   store: SettingsStore,
   callbacks: ScreensCallbacks,
+  garage: GarageController,
 ): ScreensController {
   const root = document.createElement('div');
   root.className = 'ui-screens-host';
@@ -164,7 +191,7 @@ export function createScreens(
   loadingEl.innerHTML = `
     <div class="ui-loading-top">
       <div class="ui-loading-brand">
-        ${renderBmwM3Silhouette()}
+        <span data-role="car-silhouette"></span>
         <span>Time Trial · Club Circuit</span>
       </div>
       <button type="button" class="ui-btn ui-focusable" data-role="skip-btn" hidden>
@@ -172,7 +199,7 @@ export function createScreens(
       </button>
     </div>
     <div class="ui-loading-center">
-      <h1 class="ui-loading-title">1989 BMW M3</h1>
+      <h1 class="ui-loading-title" data-role="car-year-name"></h1>
       <p class="ui-loading-sub">Club Circuit · Assembling track geometry, lighting, and audio</p>
     </div>
     <div class="ui-loading-footer">
@@ -193,8 +220,8 @@ export function createScreens(
   titleEl.innerHTML = `
     <div class="ui-title-top">
       <div class="ui-title-spec-pill">
-        ${renderBmwM3Silhouette()}
-        <span>1989 BMW M3 · E30 · 2.3L I4 · 5-Speed</span>
+        <span data-role="car-silhouette"></span>
+        <span data-role="car-spec-line"></span>
       </div>
       <div class="ui-title-spec-pill">
         ${renderIcon('flag')}
@@ -207,7 +234,7 @@ export function createScreens(
         <div class="ui-title-eyebrow">
           <span>Pit Wall Timing</span>
         </div>
-        <h1 class="ui-title-h1">BMW M3<br />Club Circuit</h1>
+        <h1 class="ui-title-h1"><span data-role="car-name"></span><br />Club Circuit</h1>
         <p class="ui-title-meta">Solo time trial · 3 timing sectors · Chase and bonnet views</p>
         <div class="ui-header-rule"></div>
       </div>
@@ -220,14 +247,21 @@ export function createScreens(
           </span>
           <span class="ui-menu-item-tag">Start session</span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 1" data-action="settings">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 1" data-action="garage">
+          <span class="ui-menu-item-left">
+            ${renderIcon('garage')}
+            <span>Garage</span>
+          </span>
+          <span class="ui-menu-item-tag tabular" data-role="title-credits"></span>
+        </button>
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="settings">
           <span class="ui-menu-item-left">
             ${renderIcon('settings')}
             <span>Settings</span>
           </span>
           <span class="ui-menu-item-tag">Units · FOV · Audio</span>
         </button>
-        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 2" data-action="controls">
+        <button type="button" class="ui-menu-item ui-focusable" style="--stagger: 3" data-action="controls">
           <span class="ui-menu-item-left">
             ${renderIcon('controls')}
             <span>Controls</span>
@@ -256,7 +290,7 @@ export function createScreens(
           ${renderIcon('pause')}
           <span>Session Paused · Club Circuit</span>
         </div>
-        <h2 class="ui-header-title" id="pause-title">1989 BMW M3</h2>
+        <h2 class="ui-header-title" id="pause-title" data-role="car-year-name"></h2>
         <div class="ui-header-rule"></div>
       </header>
 
@@ -269,6 +303,9 @@ export function createScreens(
           <button type="button" class="ui-menu-item ui-focusable" data-pause-action="restart">
             <span class="ui-menu-item-left">${renderIcon('reset')}<span>Restart run</span></span>
             <span class="ui-menu-item-tag">Grid reset</span>
+          </button>
+          <button type="button" class="ui-menu-item ui-focusable" data-pause-action="garage">
+            <span class="ui-menu-item-left">${renderIcon('garage')}<span>Garage</span></span>
           </button>
           <button type="button" class="ui-menu-item ui-focusable" data-pause-action="settings">
             <span class="ui-menu-item-left">${renderIcon('settings')}<span>Settings</span></span>
@@ -308,6 +345,17 @@ export function createScreens(
               <div class="ui-stat-label">Current lap</div>
               <div class="ui-stat-value tabular" data-role="sum-curr">0:00.000</div>
             </div>
+          </div>
+          <div class="ui-credit-summary">
+            <div class="ui-credit-row">
+              <span>Credits this session</span>
+              <span class="tabular" data-role="sum-earned">0 cr</span>
+            </div>
+            <div class="ui-credit-row">
+              <span>Balance</span>
+              <span class="tabular is-accent" data-role="sum-balance">0 cr</span>
+            </div>
+            <div class="ui-credit-row is-detail" data-role="sum-reward" hidden></div>
           </div>
           <div class="ui-lap-log" data-role="sum-log" hidden></div>
         </aside>
@@ -472,6 +520,7 @@ export function createScreens(
       const action = btn.dataset.action;
       callbacks.onPlaySound('select');
       if (action === 'play') callbacks.onStartRace();
+      else if (action === 'garage' || action === 'dealership') callbacks.onOpenGarage(action);
       else if (action === 'settings') callbacks.onOpenSettings();
       else if (action === 'controls') callbacks.onOpenControls();
     });
@@ -490,6 +539,9 @@ export function createScreens(
       } else if (action === 'restart') {
         callbacks.onPlaySound('confirm');
         callbacks.onRestartRun();
+      } else if (action === 'garage' || action === 'dealership') {
+        callbacks.onPlaySound('select');
+        callbacks.onOpenGarage(action);
       } else if (action === 'settings') {
         callbacks.onPlaySound('select');
         callbacks.onOpenSettings();
@@ -920,6 +972,36 @@ export function createScreens(
   const sumDist = mustEl(pauseBackdrop, '[data-role="sum-dist"]');
   const sumCurr = mustEl(pauseBackdrop, '[data-role="sum-curr"]');
   const sumLog = mustEl(pauseBackdrop, '[data-role="sum-log"]');
+  const sumEarned = mustEl(pauseBackdrop, '[data-role="sum-earned"]');
+  const sumBalance = mustEl(pauseBackdrop, '[data-role="sum-balance"]');
+  const sumReward = mustEl(pauseBackdrop, '[data-role="sum-reward"]');
+  const titleCredits = mustEl(titleEl, '[data-role="title-credits"]');
+
+  function refreshCar() {
+    const car = callbacks.getCar();
+    const { real } = car;
+    const litres = (real.displacementCc / 1000).toFixed(1);
+    const engine =
+      real.engineLayout === 'vee'
+        ? `V${real.cylinders}`
+        : `${real.engineLayout === 'flat' ? 'Flat' : 'Inline'} ${real.cylinders}`;
+    const silhouette = renderCarSilhouette(car);
+    root.querySelectorAll<HTMLElement>('[data-role="car-silhouette"]').forEach((el) => {
+      el.innerHTML = silhouette;
+    });
+    root.querySelectorAll<HTMLElement>('[data-role="car-year-name"]').forEach((el) => {
+      el.textContent = `${car.year} ${carName(car)}`;
+    });
+    root.querySelectorAll<HTMLElement>('[data-role="car-name"]').forEach((el) => {
+      el.textContent = carName(car);
+    });
+    root.querySelectorAll<HTMLElement>('[data-role="car-spec-line"]').forEach((el) => {
+      el.textContent = `${car.year} ${carName(car)} · ${car.chassis} · ${litres} L ${engine} · ${real.gearRatios.length}-speed`;
+    });
+    const credits = callbacks.getCredits();
+    titleCredits.textContent = credits.unlimited ? '∞ cr' : formatCredits(credits.balance);
+  }
+  refreshCar();
 
   function updatePauseSummary(state: GameState) {
     const unit = store.getSettings().speedUnit;
@@ -929,6 +1011,17 @@ export function createScreens(
     sumTime.textContent = formatSessionTime(state.elapsedSeconds);
     sumDist.textContent = formatDistance(state.distanceMetres, unit);
     sumCurr.textContent = formatLapTime(state.currentLapSeconds);
+    const credits = callbacks.getCredits();
+    sumEarned.textContent = formatCredits(credits.earnedThisSession);
+    sumBalance.textContent = credits.unlimited ? '∞ cr' : formatCredits(credits.balance);
+    const reward = credits.lastReward;
+    sumReward.hidden = reward === null;
+    if (reward) {
+      const parts = [`Lap ${formatCredits(reward.lap)}`];
+      if (reward.clean > 0) parts.push(`Clean ${formatCredits(reward.clean)}`);
+      if (reward.personalBest > 0) parts.push(`Best ${formatCredits(reward.personalBest)}`);
+      sumReward.textContent = `Last lap: ${parts.join(' + ')}`;
+    }
 
     const recent = state.lapHistory.slice(-4);
     if (recent.length === 0) {
@@ -953,6 +1046,10 @@ export function createScreens(
   // Global keyboard handler for menus, rebinding capture, and Escape navigation.
   window.addEventListener('keydown', (event) => {
     if (currentScreen === 'race') return;
+    if (currentScreen === 'garage') {
+      garage.handleKey(event);
+      return;
+    }
 
     if (currentScreen === 'controls' && listeningTarget) {
       event.preventDefault();
@@ -1047,7 +1144,10 @@ export function createScreens(
       settingsBackdrop.hidden = screen !== 'settings';
       controlsBackdrop.hidden = screen !== 'controls';
 
-      if (screen === 'pause') {
+      if (screen === 'title') {
+        refreshCar();
+      } else if (screen === 'pause') {
+        refreshCar();
         updatePauseSummary(callbacks.getGameState());
       } else if (screen === 'settings') {
         renderSettingsRows();
@@ -1055,7 +1155,7 @@ export function createScreens(
         renderControlsRows();
       }
 
-      if (screen !== 'race' && screen !== 'loading') {
+      if (screen !== 'race' && screen !== 'loading' && screen !== 'garage') {
         focusInitialForScreen(screen);
       }
     },
@@ -1081,5 +1181,6 @@ export function createScreens(
     },
 
     isListeningForKey: () => listeningTarget !== null,
+    refreshCar,
   };
 }

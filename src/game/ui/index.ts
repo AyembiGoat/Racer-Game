@@ -2,8 +2,16 @@ import './tokens.css';
 import './base.css';
 import './hud.css';
 import './screens.css';
+import './garage.css';
 
 import type { Track } from '../../core/track';
+import type { CareerStore } from '../career';
+import {
+  createGarage,
+  type GarageCallbacks,
+  type GarageController,
+  type GarageTab,
+} from './garage';
 import { createHud, type HudController } from './hud';
 import {
   createScreens,
@@ -26,17 +34,22 @@ export interface UiController {
   readonly store: SettingsStore;
   readonly hud: HudController;
   readonly screens: ScreensController;
+  readonly garage: GarageController;
   screen(): ScreenName;
   setScreen(next: ScreenName): void;
   openSubscreen(sub: 'settings' | 'controls'): void;
+  openGarage(tab: GarageTab): void;
   closeSubscreen(): void;
   returnFromSubscreenTarget(): 'title' | 'pause';
 }
 
-export function createUi(
-  track: Track,
-  callbacks: Omit<ScreensCallbacks, 'onOpenSettings' | 'onOpenControls' | 'onCloseSubscreen'>,
-): UiController {
+export type UiCallbacks = Omit<
+  ScreensCallbacks,
+  'onOpenSettings' | 'onOpenControls' | 'onOpenGarage' | 'onCloseSubscreen'
+> &
+  Omit<GarageCallbacks, 'onPlaySound' | 'onClose'>;
+
+export function createUi(track: Track, career: CareerStore, callbacks: UiCallbacks): UiController {
   const store = createSettingsStore();
   const root = document.createElement('div');
   root.className = 'ui-root';
@@ -55,6 +68,7 @@ export function createUi(
   };
 
   const setScreen = (next: ScreenName) => {
+    if (activeScreen === 'garage' && next !== 'garage') garage.close();
     activeScreen = next;
     hud.setVisible(next === 'race' || next === 'pause');
     screens.setScreen(next);
@@ -67,22 +81,42 @@ export function createUi(
     setScreen(sub);
   };
 
+  const openGarage = (tab: GarageTab) => {
+    if (activeScreen === 'title' || activeScreen === 'pause') {
+      subscreenReturn = activeScreen;
+    }
+    setScreen('garage');
+    garage.open(tab);
+  };
+
   const closeSubscreen = () => {
     setScreen(subscreenReturn);
   };
 
-  const screens: ScreensController = createScreens(store, {
+  const garage = createGarage(career, store, {
     ...callbacks,
-    onOpenSettings: () => {
-      openSubscreen('settings');
+    onClose: () => {
+      closeSubscreen();
     },
-    onOpenControls: () => {
-      openSubscreen('controls');
-    },
-    onCloseSubscreen: closeSubscreen,
   });
 
-  root.append(hud.element, screens.element);
+  const screens: ScreensController = createScreens(
+    store,
+    {
+      ...callbacks,
+      onOpenSettings: () => {
+        openSubscreen('settings');
+      },
+      onOpenControls: () => {
+        openSubscreen('controls');
+      },
+      onOpenGarage: openGarage,
+      onCloseSubscreen: closeSubscreen,
+    },
+    garage,
+  );
+
+  root.append(hud.element, screens.element, garage.element);
 
   applyMotionAndSettings();
   store.subscribe(() => {
@@ -99,9 +133,11 @@ export function createUi(
     store,
     hud,
     screens,
+    garage,
     screen: () => activeScreen,
     setScreen,
     openSubscreen,
+    openGarage,
     closeSubscreen,
     returnFromSubscreenTarget: () => subscreenReturn,
   };

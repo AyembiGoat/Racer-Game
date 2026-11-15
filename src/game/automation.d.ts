@@ -1,5 +1,9 @@
+import type { Career } from '../core/career';
+import type { CarId } from '../core/cars';
 import type { GameEvent, GameInput, GameState } from '../core/game';
+import type { SoundLevel } from './audio';
 import type { GameSettings, KeyBindings, ScreenName } from './ui';
+import type { GarageTab } from './ui/garage';
 import type { CameraMode } from './view';
 
 declare global {
@@ -31,6 +35,18 @@ declare global {
       bindings(): KeyBindings;
       /** Peak loudness of each sound relative to a full barrier impact. */
       loudness(): Promise<Record<string, number>>;
+      /** Peak and RMS level of each sound, including every car's engine. */
+      levels(): Promise<Record<string, SoundLevel>>;
+      /** Open the garage or the dealership. */
+      openGarage(tab: GarageTab): void;
+      /** Id of the car on the circuit. */
+      car(): CarId;
+      /** The saved career. */
+      career(): Career;
+      /** Write a career to browser storage; reload the page to load it. */
+      setCareer(credits: number, owned: readonly CarId[], equipped: CarId): void;
+      /** Whether the bay is drawn, and its camera angles. */
+      showroom(): { active: boolean; yaw: number; pitch: number };
     };
   }
 }
